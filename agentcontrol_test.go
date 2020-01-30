@@ -3,8 +3,9 @@ package GoSNMPServer
 import "testing"
 
 import (
+	"github.com/slayercat/gosnmp"
 	"github.com/stretchr/testify/suite"
-	//	"github.com/stretchr/testify/assert"
+	//"github.com/stretchr/testify/assert"
 )
 
 type ResponseForBufferTestSuite struct {
@@ -21,7 +22,13 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 		Logger: suite.Logger,
 		SubAgents: []SubAgent{
 			{
-				OIDs: []PDUValueControlItem{},
+				OIDs: []PDUValueControlItem{
+					{
+						OID:   "1.3.6.1.2.1.43.14.1.1.6.1.5",
+						Type:  gosnmp.Counter64,
+						OnGet: func() (interface{}, error) { return 0x0, nil },
+					},
+				},
 			},
 		},
 	}
@@ -34,7 +41,10 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 
 func (suite *ResponseForBufferTestSuite) TestSnmpv1GetRequest() {
 	buf := suite.reqeustV1GetRequest()
-	response, err := suite.handle.ResponseForBuffer(buf)
+	var err error
+	var response *gosnmp.SnmpPacket
+	response, err = suite.handle.ResponseForBuffer(buf)
+
 	if err != nil {
 		suite.T().Errorf("meet error: %+v", err)
 	}

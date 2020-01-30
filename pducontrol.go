@@ -11,7 +11,7 @@ const PermissionAllowanceAllowed PermissionAllowance = 0
 // PermissionAllowanceDenied denies for access
 const PermissionAllowanceDenied PermissionAllowance = 1
 
-type FuncPDUControlCheckPermission func(pktVersion int, pduType gosnmp.PDUType, contextName string)
+type FuncPDUControlCheckPermission func(pktVersion gosnmp.SnmpVersion, pduType gosnmp.PDUType, contextName string) PermissionAllowance
 
 // FuncPDUControlGet will be called on get value
 type FuncPDUControlGet func() (value interface{}, err error)

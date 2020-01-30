@@ -125,7 +125,7 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) (*gosnmp.SnmpPacket, error) {
 
 func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	// Find for which SubAgent
-	community := t.getPktContextOrCommunity(i)
+	community := getPktContextOrCommunity(i)
 	subAgent := t.findForSubAgent(community)
 	if subAgent == nil {
 		return nil, errors.WithStack(ErrNoSNMPInstance)
@@ -161,14 +161,6 @@ func (t *MasterAgent) SyncConfig() error {
 	return nil
 }
 
-func (t *MasterAgent) getPktContextOrCommunity(i *gosnmp.SnmpPacket) string {
-	if i.Version == gosnmp.Version3 {
-		return i.ContextName
-	} else {
-		return i.Community
-	}
-}
-
 func (t *MasterAgent) findForSubAgent(community string) *SubAgent {
 	if val, ok := t.priv.communityToSubAgent[community]; ok {
 		return val
@@ -184,26 +176,83 @@ func (t *SubAgent) SyncConfig() error {
 
 func (t *SubAgent) Serve(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	//find for oid
-	panic("NotIMP	")
-}
-
-func (t *SubAgent) GetOID(oid string) (interface{}, error) {
-	//find for oid
-	item, err := t.getForPDUValueControl(oid)
-	if err != nil {
-		return nil, err
-	}
-	if item.OnGet == nil {
+	switch i.PDUType {
+	case gosnmp.GetRequest:
+		return t.serveGetRequest(i)
+	case gosnmp.GetNextRequest:
+		return t.serveGetNextRequest(i)
+	case gosnmp.SetRequest:
+		return t.serveSetRequest(i)
+	default:
 		return nil, errors.WithStack(ErrUnsupportedOperation)
 	}
+}
 
-	panic("XXX")
+func (t *SubAgent) checkPermission(whichPDU *PDUValueControlItem, request *gosnmp.SnmpPacket) PermissionAllowance {
+	if whichPDU.OnCheckPermission == nil {
+		return PermissionAllowanceAllowed
+	}
+	return whichPDU.OnCheckPermission(request.Version, request.PDUType, getPktContextOrCommunity(request))
+}
+
+func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
+	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
+	ret.PDUType = gosnmp.GetResponse
+	ret.Variables = []gosnmp.SnmpPDU{}
+
+	for _, varItem := range i.Variables {
+		item, err := t.getForPDUValueControl(varItem.Name)
+		if err != nil {
+			return nil, err
+		}
+		if t.checkPermission(item, i) != PermissionAllowanceAllowed {
+			return nil, errors.WithStack(ErrNoPermission)
+		}
+		if item.OnGet == nil {
+			return nil, errors.WithStack(ErrUnsupportedOperation)
+		}
+		valtoRet, err := item.OnGet()
+		if err != nil {
+			return nil, errors.Wrap(err, "OnGet Failed")
+		}
+		ret.Variables = append(ret.Variables, gosnmp.SnmpPDU{
+			Name:   varItem.Name,
+			Type:   varItem.Type,
+			Value:  valtoRet,
+			Logger: &SnmpLoggerAdapter{t.Logger},
+		})
+	}
+
+	return &ret, nil
 
 }
 
-func (t *SubAgent) SetOID(oid string, value interface{}) error {
-	//find for oid
-	panic("XXX")
+func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
+	panic("NOTGOOD")
+}
+
+// serveSetRequest for SetReqeust.
+//                 will just Return  GetResponse for Fullily SUCCESS
+func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
+	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
+	ret.PDUType = gosnmp.GetResponse
+	for _, varItem := range i.Variables {
+		item, err := t.getForPDUValueControl(varItem.Name)
+		if err != nil {
+			return nil, err
+		}
+		if t.checkPermission(item, i) != PermissionAllowanceAllowed {
+			return nil, errors.WithStack(ErrNoPermission)
+		}
+		if item.OnSet == nil {
+			return nil, errors.WithStack(ErrUnsupportedOperation)
+		}
+
+		if err := item.OnSet(varItem.Value); err != nil {
+			return nil, errors.Wrap(err, "OnSet Failed")
+		}
+	}
+	return &ret, nil
 }
 
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, error) {
