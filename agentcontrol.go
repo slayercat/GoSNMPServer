@@ -2,9 +2,9 @@ package GoSNMPServer
 
 import "time"
 import "fmt"
-import "io/ioutil"
 import "github.com/shirou/gopsutil/host"
-import "github.com/sirupsen/logrus"
+
+import "github.com/slayercat/gosnmp"
 
 type FuncGetAuthoritativeEngineTime func() uint32
 
@@ -23,7 +23,7 @@ type MasterAgent struct {
 
 	SubAgents []SubAgent
 
-	Logger *logrus.Logger
+	Logger ILogger
 }
 
 type SubAgent struct {
@@ -34,7 +34,7 @@ type SubAgent struct {
 	// OIDs for Read/Write actions
 	OIDs []PDUValueControlItem
 
-	Logger *logrus.Logger
+	Logger ILogger
 }
 
 type SecurityConfig struct {
@@ -49,6 +49,8 @@ type SNMPEngineID struct {
 }
 
 func (t *SNMPEngineID) Marshal() []byte {
+	// XXX: STUB
+
 	// msgAuthoritativeEngineID: 80004fb8054445534b544f502d4a3732533245343ab63bc8
 	// 1... .... = Engine ID Conformance: RFC3411 (SNMPv3)
 	// Engine Enterprise ID: pysnmp (20408)
@@ -73,9 +75,7 @@ func (t *MasterAgent) syncAndCheck() error {
 
 	if t.Logger == nil {
 		//Set New NIL Logger
-		var log = logrus.New()
-		log.Out = ioutil.Discard
-		log.Level = logrus.PanicLevel
+		t.Logger = NewDiscardLogger()
 	}
 	if t.OnGetAuthoritativeEngineTime == nil {
 		t.OnGetAuthoritativeEngineTime = DefaultGetAuthoritativeEngineTime
@@ -89,6 +89,19 @@ func (t *MasterAgent) syncAndCheck() error {
 		t.AuthoritativeEngineID = DefaultAuthoritativeEngineID()
 	}
 	return nil
+}
+
+func (t *MasterAgent) ResponseForBuffer(i []byte) (*gosnmp.SnmpPacket, error) {
+	// Decode
+	vhandle := gosnmp.GoSNMP{}
+	vhandle.Logger = &SnmpLoggerAdapter{t.Logger}
+
+	panic("WIP")
+}
+
+func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
+	// Check
+	panic("WIP")
 }
 
 func DefaultAuthoritativeEngineID() SNMPEngineID {
