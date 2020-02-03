@@ -105,7 +105,7 @@ func (t *MasterAgent) ReadyForWork() error {
 	return t.SyncConfig()
 }
 
-func (t *MasterAgent) ResponseForBuffer(i []byte) (*gosnmp.SnmpPacket, error) {
+func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 	// Decode
 	vhandle := gosnmp.GoSNMP{}
 	vhandle.Logger = &SnmpLoggerAdapter{t.Logger}
@@ -113,14 +113,48 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) (*gosnmp.SnmpPacket, error) {
 
 	switch request.Version {
 	case gosnmp.Version1, gosnmp.Version2c:
-		return t.ResponseForPkt(request)
+
+		return t.marshalPkt(t.ResponseForPkt(request))
+		//
 	case gosnmp.Version3:
 		_ = err
 		//v3 might want for Privacy
-		fallthrough
-	default:
-		return nil, errors.WithStack(ErrUnsupportedProtoVersion)
+		break
 	}
+	return nil, errors.WithStack(ErrUnsupportedProtoVersion)
+}
+
+func (t *MasterAgent) marshalPkt(pkt *gosnmp.SnmpPacket, err error) ([]byte, error) {
+	// when err. marshal error pkt
+	if err != nil {
+		//errPkt := t.getErrorPkt(err)
+		panic("error not implemented")
+	}
+
+	out, err := pkt.MarshalMsg()
+	return out, err
+}
+
+func (t *MasterAgent) getGoSNMPHandlerFromPkt(pkt *gosnmp.SnmpPacket) (*gosnmp.GoSNMP, error) {
+	switch pkt.Version {
+	case gosnmp.Version1, gosnmp.Version2c:
+		return &gosnmp.GoSNMP{Community: pkt.Community}, nil
+	case gosnmp.Version3:
+		/*
+			engine := gosnmp.GoSNMP {
+				SecurityModel:      x.SecurityModel,
+				SecurityParameters: newSecParams,
+				ContextEngineID:    x.ContextEngineID,
+			}
+			return engine,nil
+		*/
+		break
+	}
+	return nil, errors.WithStack(ErrUnsupportedProtoVersion)
+}
+
+func (t *MasterAgent) getErrorPkt(err error) *gosnmp.SnmpPacket {
+	panic("xxx")
 }
 
 func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {

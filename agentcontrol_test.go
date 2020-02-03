@@ -4,8 +4,8 @@ import "testing"
 
 import (
 	"github.com/slayercat/gosnmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	//"github.com/stretchr/testify/assert"
 )
 
 type ResponseForBufferTestSuite struct {
@@ -42,15 +42,25 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 func (suite *ResponseForBufferTestSuite) TestSnmpv1GetRequest() {
 	buf := suite.reqeustV1GetRequest()
 	var err error
-	var response *gosnmp.SnmpPacket
-	response, err = suite.handle.ResponseForBuffer(buf)
+
+	responsebytes, err := suite.handle.ResponseForBuffer(buf)
 
 	if err != nil {
 		suite.T().Errorf("meet error: %+v", err)
 	}
-	if response == nil {
+	if responsebytes == nil {
 		suite.T().Errorf("response shell not be nil")
 	}
+	suite.handle.Logger.Infof("Response done. try decode")
+	var handle = gosnmp.GoSNMP{}
+	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	response, err := handle.SnmpDecodePacket(responsebytes)
+	if err != nil || response == nil {
+		suite.T().Errorf("meet error: %+v", err)
+	}
+	assert.Equal(suite.T(), "public", response.Community)
+	assert.Equal(suite.T(), 1, len(response.Variables))
+	assert.Equal(suite.T(), ".1.3.6.1.2.1.43.14.1.1.6.1.5", response.Variables[0].Name)
 }
 
 // Simple Network Management Protocol
