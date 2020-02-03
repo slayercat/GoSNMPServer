@@ -20,6 +20,9 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 	suite.Logger = NewDefaultLogger()
 	suite.handle = &MasterAgent{
 		Logger: suite.Logger,
+		SecurityConfig: SecurityConfig{
+			AuthoritativeEngineBoots: 123,
+		},
 		SubAgents: []SubAgent{
 			{
 				OIDs: []PDUValueControlItem{
@@ -63,6 +66,34 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv1GetRequest() {
 	assert.Equal(suite.T(), ".1.3.6.1.2.1.43.14.1.1.6.1.5", response.Variables[0].Name)
 }
 
+func (suite *ResponseForBufferTestSuite) TestSnmpv3HelloRequest() {
+	buf := suite.snmpv3HelloRequest()
+	var err error
+
+	responsebytes, err := suite.handle.ResponseForBuffer(buf)
+
+	if err != nil {
+		suite.T().Errorf("meet error: %+v", err)
+	}
+	if responsebytes == nil {
+		suite.T().Errorf("response shell not be nil")
+	}
+	suite.handle.Logger.Infof("Response done. try decode")
+	var handle = gosnmp.GoSNMP{}
+	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	response, err := handle.SnmpDecodePacket(responsebytes)
+	if err != nil || response == nil {
+		suite.T().Errorf("meet error: %+v", err)
+	}
+	assert.Equal(suite.T(), "", response.Community)
+	assert.NotEqual(suite.T(), nil, response.SecurityParameters)
+	assert.NotEqual(suite.T(), "", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineID)
+	assert.Equal(suite.T(), uint32(123), response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineBoots)
+	assert.NotEqual(suite.T(), 0, response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineTime)
+	assert.Equal(suite.T(), 1, len(response.Variables))
+
+}
+
 // Simple Network Management Protocol
 //     version: version-1 (0)
 //     community: public
@@ -85,6 +116,36 @@ func (suite *ResponseForBufferTestSuite) reqeustV1GetRequest() []byte {
 		0x01, 0x02, 0x01, 0x2b, 0x0e, 0x01, 0x01, 0x06,
 		0x01, 0x05, 0x05, 0x00,
 	}
+}
+
+// Simple Network Management Protocol
+//     msgVersion: snmpv3 (3)
+//     msgGlobalData
+//         msgID: 91040642
+//         msgMaxSize: 65507
+//         msgFlags: 04
+//         msgSecurityModel: USM (3)
+//     msgAuthoritativeEngineID: <MISSING>
+//     msgAuthoritativeEngineBoots: 0
+//     msgAuthoritativeEngineTime: 0
+//     msgUserName:
+//     msgAuthenticationParameters: <MISSING>
+//     msgPrivacyParameters: <MISSING>
+//     msgData: plaintext (0)
+//         plaintext
+
+func (suite *ResponseForBufferTestSuite) snmpv3HelloRequest() []byte {
+	return []byte{0x30, 0x52, 0x02, 0x01, 0x03, 0x30, 0x11, 0x02,
+		0x04, 0x05, 0x6d, 0x2b, 0x82, 0x02, 0x03, 0x00,
+		0xff, 0xe3, 0x04, 0x01, 0x04, 0x02, 0x01, 0x03,
+		0x04, 0x10, 0x30, 0x0e, 0x04, 0x00, 0x02, 0x01,
+		0x00, 0x02, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00,
+		0x04, 0x00, 0x30, 0x28, 0x04, 0x00, 0x04, 0x14,
+		0x66, 0x6f, 0x72, 0x65, 0x69, 0x67, 0x6e, 0x66,
+		0x6f, 0x72, 0x6d, 0x61, 0x74, 0x73, 0x2f, 0x6c,
+		0x69, 0x6e, 0x75, 0x78, 0xa0, 0x0e, 0x02, 0x04,
+		0x44, 0xfa, 0x16, 0xe1, 0x02, 0x01, 0x00, 0x02,
+		0x01, 0x00, 0x30, 0x00}
 }
 
 func TestResponseForBufferTestSuite(t *testing.T) {

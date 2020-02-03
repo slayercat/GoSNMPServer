@@ -2,6 +2,7 @@ package GoSNMPServer
 
 import "time"
 import "strings"
+import "reflect"
 import "github.com/shirou/gopsutil/host"
 
 import "github.com/slayercat/gosnmp"
@@ -12,14 +13,6 @@ type FuncGetAuthoritativeEngineTime func() uint32
 //MasterAgent identifys software which runs on managed devices
 //            One server (port) could ONLY have one MasterAgent
 type MasterAgent struct {
-	// AuthoritativeEngineID is SNMPV3 AuthoritativeEngineID
-	AuthoritativeEngineID SNMPEngineID
-	// AuthoritativeEngineBoots is SNMPV3 AuthoritativeEngineBoots
-	AuthoritativeEngineBoots uint32
-	// OnGetAuthoritativeEngineTime will be called to get SNMPV3 AuthoritativeEngineTime
-	//      if sets to nil, the sys boottime will be used
-	OnGetAuthoritativeEngineTime FuncGetAuthoritativeEngineTime
-
 	SecurityConfig SecurityConfig
 
 	SubAgents []SubAgent
@@ -46,6 +39,28 @@ type SubAgent struct {
 
 type SecurityConfig struct {
 	NoSecurity bool
+
+	// AuthoritativeEngineID is SNMPV3 AuthoritativeEngineID
+	AuthoritativeEngineID SNMPEngineID
+	// AuthoritativeEngineBoots is SNMPV3 AuthoritativeEngineBoots
+	AuthoritativeEngineBoots uint32
+	// OnGetAuthoritativeEngineTime will be called to get SNMPV3 AuthoritativeEngineTime
+	//      if sets to nil, the sys boottime will be used
+	OnGetAuthoritativeEngineTime FuncGetAuthoritativeEngineTime
+
+	Users []gosnmp.UsmSecurityParameters
+}
+
+func (v *SecurityConfig) FindForUser(name string) *gosnmp.UsmSecurityParameters {
+	if v.Users == nil {
+		return nil
+	}
+	for item, user := range v.Users {
+		if user.UserName == name {
+			return &v.Users[item]
+		}
+	}
+	return nil
 }
 
 type SNMPEngineID struct {
@@ -84,16 +99,16 @@ func (t *MasterAgent) syncAndCheck() error {
 		//Set New NIL Logger
 		t.Logger = NewDiscardLogger()
 	}
-	if t.OnGetAuthoritativeEngineTime == nil {
-		t.OnGetAuthoritativeEngineTime = DefaultGetAuthoritativeEngineTime
+	if t.SecurityConfig.OnGetAuthoritativeEngineTime == nil {
+		t.SecurityConfig.OnGetAuthoritativeEngineTime = DefaultGetAuthoritativeEngineTime
 	}
 
 	for _, each := range t.SubAgents {
 		each.Logger = t.Logger
 	}
 
-	if t.AuthoritativeEngineID.EngineIDData == "" {
-		t.AuthoritativeEngineID = DefaultAuthoritativeEngineID()
+	if t.SecurityConfig.AuthoritativeEngineID.EngineIDData == "" {
+		t.SecurityConfig.AuthoritativeEngineID = DefaultAuthoritativeEngineID()
 	}
 	return nil
 }
@@ -109,17 +124,41 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 	// Decode
 	vhandle := gosnmp.GoSNMP{}
 	vhandle.Logger = &SnmpLoggerAdapter{t.Logger}
+	mb, _ := t.getUsmSecurityParametersFromUser("")
+	vhandle.SecurityParameters = mb
 	request, err := vhandle.SnmpDecodePacket(i)
 
 	switch request.Version {
 	case gosnmp.Version1, gosnmp.Version2c:
-
 		return t.marshalPkt(t.ResponseForPkt(request))
 		//
 	case gosnmp.Version3:
-		_ = err
+		// check for initial - discover response / non Privacy Items
+		if err == nil {
+			request.SecurityParameters = mb
+			return t.marshalPkt(t.ResponseForPkt(request))
+		}
 		//v3 might want for Privacy
-		break
+		t.Logger.Debugf("v3 decode [non password] meet %v", err)
+		if request.SecurityParameters == nil {
+			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
+		}
+		var username string
+		if val, ok := request.SecurityParameters.(*gosnmp.UsmSecurityParameters); !ok {
+			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v.Unknown Type:%v", err, reflect.TypeOf(request.SecurityParameters))
+		} else {
+			username = val.UserName
+		}
+		usm, err := t.getUsmSecurityParametersFromUser(username)
+		if err != nil {
+			return nil, err
+		}
+		vhandle.SecurityParameters = usm
+		request, err := vhandle.SnmpDecodePacket(i)
+		if err != nil {
+			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
+		}
+		return t.marshalPkt(t.ResponseForPkt(request))
 	}
 	return nil, errors.WithStack(ErrUnsupportedProtoVersion)
 }
@@ -135,22 +174,27 @@ func (t *MasterAgent) marshalPkt(pkt *gosnmp.SnmpPacket, err error) ([]byte, err
 	return out, err
 }
 
-func (t *MasterAgent) getGoSNMPHandlerFromPkt(pkt *gosnmp.SnmpPacket) (*gosnmp.GoSNMP, error) {
-	switch pkt.Version {
-	case gosnmp.Version1, gosnmp.Version2c:
-		return &gosnmp.GoSNMP{Community: pkt.Community}, nil
-	case gosnmp.Version3:
-		/*
-			engine := gosnmp.GoSNMP {
-				SecurityModel:      x.SecurityModel,
-				SecurityParameters: newSecParams,
-				ContextEngineID:    x.ContextEngineID,
-			}
-			return engine,nil
-		*/
-		break
+func (t *MasterAgent) getUsmSecurityParametersFromUser(username string) (*gosnmp.UsmSecurityParameters, error) {
+	if username == "" {
+		return &gosnmp.UsmSecurityParameters{
+			Logger:                   &SnmpLoggerAdapter{t.Logger},
+			AuthoritativeEngineID:    string(t.SecurityConfig.AuthoritativeEngineID.Marshal()),
+			AuthoritativeEngineBoots: t.SecurityConfig.AuthoritativeEngineBoots,
+			AuthoritativeEngineTime:  t.SecurityConfig.OnGetAuthoritativeEngineTime(),
+		}, nil
+
 	}
-	return nil, errors.WithStack(ErrUnsupportedProtoVersion)
+	if val := t.SecurityConfig.FindForUser(username); val != nil {
+		val = val.Copy().(*gosnmp.UsmSecurityParameters)
+		val.AuthoritativeEngineID = string(t.SecurityConfig.AuthoritativeEngineID.Marshal())
+		val.AuthoritativeEngineBoots = t.SecurityConfig.AuthoritativeEngineBoots
+		val.AuthoritativeEngineTime = t.SecurityConfig.OnGetAuthoritativeEngineTime()
+		val.Logger = &SnmpLoggerAdapter{t.Logger}
+		return val, nil
+	} else {
+		return nil, errors.WithStack(ErrNoPermission)
+	}
+
 }
 
 func (t *MasterAgent) getErrorPkt(err error) *gosnmp.SnmpPacket {
@@ -229,11 +273,28 @@ func (t *SubAgent) checkPermission(whichPDU *PDUValueControlItem, request *gosnm
 	return whichPDU.OnCheckPermission(request.Version, request.PDUType, getPktContextOrCommunity(request))
 }
 
+func (t *SubAgent) getHelloVariable() gosnmp.SnmpPDU {
+	// Return a variable. Usually for failture login try count.
+	//   1.3.6.1.6.3.15.1.1.4.0 => http://oidref.com/1.3.6.1.6.3.15.1.1.4.0
+	//   usmStatsUnknownEngineIDs
+	return gosnmp.SnmpPDU{
+		Name:   "1.3.6.1.6.3.15.1.1.4.0",
+		Type:   gosnmp.Counter32,
+		Value:  uint32(0),
+		Logger: &SnmpLoggerAdapter{t.Logger},
+	}
+}
+
 func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	ret.PDUType = gosnmp.GetResponse
 	ret.Variables = []gosnmp.SnmpPDU{}
-
+	if i.Version == gosnmp.Version3 && len(i.Variables) == 0 {
+		// SNMP V3 hello packet
+		ret.PDUType = gosnmp.Report
+		ret.Variables = append(ret.Variables, t.getHelloVariable())
+		return &ret, nil
+	}
 	for _, varItem := range i.Variables {
 		item, err := t.getForPDUValueControl(varItem.Name)
 		if err != nil {
