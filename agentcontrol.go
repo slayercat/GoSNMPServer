@@ -136,10 +136,15 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		// check for initial - discover response / non Privacy Items
 		if err == nil {
 			request.SecurityParameters = mb
-			return t.marshalPkt(t.ResponseForPkt(request))
+			val, err := t.ResponseForPkt(request)
+			if val == nil {
+				return t.marshalPkt(request, err)
+			} else {
+				return t.marshalPkt(val, err)
+			}
 		}
 		//v3 might want for Privacy
-		t.Logger.Debugf("v3 decode [non password] meet %v", err)
+		t.Logger.Debugf("v3 decode [will fail with non password] meet %v", err)
 		if request.SecurityParameters == nil {
 			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
 		}
@@ -158,7 +163,14 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		if err != nil {
 			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
 		}
-		return t.marshalPkt(t.ResponseForPkt(request))
+		val, err := t.ResponseForPkt(request)
+		if val == nil {
+			request.SecurityParameters = usm
+			return t.marshalPkt(request, err)
+		} else {
+			val.SecurityParameters = usm
+			return t.marshalPkt(val, err)
+		}
 	}
 	return nil, errors.WithStack(ErrUnsupportedProtoVersion)
 }
@@ -166,8 +178,13 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 func (t *MasterAgent) marshalPkt(pkt *gosnmp.SnmpPacket, err error) ([]byte, error) {
 	// when err. marshal error pkt
 	if err != nil {
-		//errPkt := t.getErrorPkt(err)
-		panic("error not implemented")
+		t.Logger.Debugf("Will marshal: %v", err)
+		errFill := t.fillErrorPkt(err, pkt)
+		if errFill != nil {
+			return nil, err
+		}
+
+		return pkt.MarshalMsg()
 	}
 
 	out, err := pkt.MarshalMsg()
@@ -185,20 +202,36 @@ func (t *MasterAgent) getUsmSecurityParametersFromUser(username string) (*gosnmp
 
 	}
 	if val := t.SecurityConfig.FindForUser(username); val != nil {
-		val = val.Copy().(*gosnmp.UsmSecurityParameters)
-		val.AuthoritativeEngineID = string(t.SecurityConfig.AuthoritativeEngineID.Marshal())
-		val.AuthoritativeEngineBoots = t.SecurityConfig.AuthoritativeEngineBoots
-		val.AuthoritativeEngineTime = t.SecurityConfig.OnGetAuthoritativeEngineTime()
-		val.Logger = &SnmpLoggerAdapter{t.Logger}
-		return val, nil
+		fval := val.Copy().(*gosnmp.UsmSecurityParameters)
+		var salt = make([]byte, 8)
+		fval.PrivacyParameters = salt
+		fval.AuthoritativeEngineID = string(t.SecurityConfig.AuthoritativeEngineID.Marshal())
+		fval.AuthoritativeEngineBoots = t.SecurityConfig.AuthoritativeEngineBoots
+		fval.AuthoritativeEngineTime = t.SecurityConfig.OnGetAuthoritativeEngineTime()
+		fval.Logger = &SnmpLoggerAdapter{t.Logger}
+		return fval, nil
 	} else {
 		return nil, errors.WithStack(ErrNoPermission)
 	}
 
 }
 
-func (t *MasterAgent) getErrorPkt(err error) *gosnmp.SnmpPacket {
-	panic("xxx")
+func (t *MasterAgent) fillErrorPkt(err error, io *gosnmp.SnmpPacket) error {
+	if errors.Is(err, ErrNoSNMPInstance) {
+		io.Error = gosnmp.ResourceUnavailable
+	} else if errors.Is(err, ErrUnknownOID) {
+		io.Error = gosnmp.NoSuchName
+	} else if errors.Is(err, ErrUnsupportedOperation) {
+		io.Error = gosnmp.ReadOnly
+	} else if errors.Is(err, ErrNoPermission) {
+		io.Error = gosnmp.AuthorizationError
+	} else if errors.Is(err, ErrUnsupportedPacketData) {
+		io.Error = gosnmp.BadValue
+	} else {
+		io.Error = gosnmp.GenErr
+	}
+	io.ErrorIndex = 0
+	return nil
 }
 
 func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
@@ -273,16 +306,31 @@ func (t *SubAgent) checkPermission(whichPDU *PDUValueControlItem, request *gosnm
 	return whichPDU.OnCheckPermission(request.Version, request.PDUType, getPktContextOrCommunity(request))
 }
 
-func (t *SubAgent) getHelloVariable() gosnmp.SnmpPDU {
+func (t *SubAgent) getPDU(Name string, Type gosnmp.Asn1BER, Value interface{}) gosnmp.SnmpPDU {
+	return gosnmp.SnmpPDU{
+		Name:   Name,
+		Type:   Type,
+		Value:  Value,
+		Logger: &SnmpLoggerAdapter{t.Logger},
+	}
+}
+func (t *SubAgent) getPDUHelloVariable() gosnmp.SnmpPDU {
 	// Return a variable. Usually for failture login try count.
 	//   1.3.6.1.6.3.15.1.1.4.0 => http://oidref.com/1.3.6.1.6.3.15.1.1.4.0
 	//   usmStatsUnknownEngineIDs
-	return gosnmp.SnmpPDU{
-		Name:   "1.3.6.1.6.3.15.1.1.4.0",
-		Type:   gosnmp.Counter32,
-		Value:  uint32(0),
-		Logger: &SnmpLoggerAdapter{t.Logger},
-	}
+	return t.getPDU(
+		"1.3.6.1.6.3.15.1.1.4.0",
+		gosnmp.Counter32,
+		uint32(0),
+	)
+}
+
+func (t *SubAgent) getPDUNoSuchInstance(Name string) gosnmp.SnmpPDU {
+	return t.getPDU(
+		Name,
+		gosnmp.NoSuchInstance,
+		nil,
+	)
 }
 
 func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
@@ -292,11 +340,15 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	if i.Version == gosnmp.Version3 && len(i.Variables) == 0 {
 		// SNMP V3 hello packet
 		ret.PDUType = gosnmp.Report
-		ret.Variables = append(ret.Variables, t.getHelloVariable())
+		ret.Variables = append(ret.Variables, t.getPDUHelloVariable())
 		return &ret, nil
 	}
 	for _, varItem := range i.Variables {
 		item, err := t.getForPDUValueControl(varItem.Name)
+		if errors.Is(err, ErrUnknownOID) {
+			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -333,6 +385,10 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	ret.PDUType = gosnmp.GetResponse
 	for _, varItem := range i.Variables {
 		item, err := t.getForPDUValueControl(varItem.Name)
+		if errors.Is(err, ErrUnknownOID) {
+			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
