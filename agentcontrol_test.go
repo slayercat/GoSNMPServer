@@ -133,8 +133,11 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3EncryptedRequest() {
 		suite.T().Errorf("meet error: %+v", err)
 	}
 	assert.Equal(suite.T(), "", response.Community)
+	assert.Equal(suite.T(), gosnmp.SNMPError(0x2), response.Error)
+	assert.Equal(suite.T(), uint8(0x0), response.ErrorIndex)
 	assert.NotEqual(suite.T(), nil, response.SecurityParameters)
 	assert.NotEqual(suite.T(), "", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineID)
+	assert.Equal(suite.T(), "pippo", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).UserName)
 	assert.Equal(suite.T(), uint32(123), response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineBoots)
 	assert.NotEqual(suite.T(), 0, response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineTime)
 	assert.Equal(suite.T(), uint32(821490645), response.MsgID)

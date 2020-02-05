@@ -20,6 +20,8 @@ github.com/slayercat/gosnmp v1.22.1-0.20200203141632-a9a63216ce47 h1:ehWhaFQqd9n
 github.com/slayercat/gosnmp v1.22.1-0.20200203141632-a9a63216ce47/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
 github.com/slayercat/gosnmp v1.22.1-0.20200204143537-71bbf557d01c h1:q4+ajqwwtXmiRnBJjYz3e3m0uUDrFY3CfxXQrclV2y4=
 github.com/slayercat/gosnmp v1.22.1-0.20200204143537-71bbf557d01c/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
+github.com/slayercat/gosnmp v1.22.1-0.20200205025920-d9b46865c1e6 h1:Bz5I75kAH3GTJWyfsnvIkKbmuL9V5O3EbBvIn2lZbCs=
+github.com/slayercat/gosnmp v1.22.1-0.20200205025920-d9b46865c1e6/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
 github.com/soniah/gosnmp v1.22.0 h1:jVJi8+OGvR+JHIaZKMmnyNP0akJd2vEgNatybwhZvxg=
 github.com/soniah/gosnmp v1.22.0/go.mod h1:DuEpAS0az51+DyVBQwITDsoq4++e3LTNckp2GoasF2I=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

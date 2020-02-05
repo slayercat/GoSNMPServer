@@ -3,6 +3,7 @@ package GoSNMPServer
 import "time"
 import "strings"
 import "reflect"
+import "fmt"
 import "github.com/shirou/gopsutil/host"
 
 import "github.com/slayercat/gosnmp"
@@ -333,6 +334,22 @@ func (t *SubAgent) getPDUNoSuchInstance(Name string) gosnmp.SnmpPDU {
 	)
 }
 
+func (t *SubAgent) getPDUNil(Name string) gosnmp.SnmpPDU {
+	return t.getPDU(
+		Name,
+		gosnmp.Null,
+		nil,
+	)
+}
+
+func (t *SubAgent) getPDUObjectDescription(Name, str string) gosnmp.SnmpPDU {
+	return t.getPDU(
+		Name,
+		gosnmp.ObjectDescription,
+		str,
+	)
+}
+
 func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	ret.PDUType = gosnmp.GetResponse
@@ -343,9 +360,13 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		ret.Variables = append(ret.Variables, t.getPDUHelloVariable())
 		return &ret, nil
 	}
-	for _, varItem := range i.Variables {
+	for id, varItem := range i.Variables {
 		item, err := t.getForPDUValueControl(varItem.Name)
 		if errors.Is(err, ErrUnknownOID) {
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.NoSuchName
+				ret.ErrorIndex = uint8(id)
+			}
 			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
 			continue
 		}
@@ -353,14 +374,30 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			return nil, err
 		}
 		if t.checkPermission(item, i) != PermissionAllowanceAllowed {
-			return nil, errors.WithStack(ErrNoPermission)
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.NoAccess
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
+			continue
 		}
 		if item.OnGet == nil {
-			return nil, errors.WithStack(ErrUnsupportedOperation)
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.ResourceUnavailable
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
+			continue
 		}
 		valtoRet, err := item.OnGet()
 		if err != nil {
-			return nil, errors.Wrap(err, "OnGet Failed")
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.GenErr
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables,
+				t.getPDUObjectDescription(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
+			continue
 		}
 		ret.Variables = append(ret.Variables, gosnmp.SnmpPDU{
 			Name:   varItem.Name,
@@ -383,9 +420,13 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	ret.PDUType = gosnmp.GetResponse
-	for _, varItem := range i.Variables {
+	for id, varItem := range i.Variables {
 		item, err := t.getForPDUValueControl(varItem.Name)
 		if errors.Is(err, ErrUnknownOID) {
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.NoSuchName
+				ret.ErrorIndex = uint8(id)
+			}
 			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
 			continue
 		}
@@ -393,14 +434,30 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			return nil, err
 		}
 		if t.checkPermission(item, i) != PermissionAllowanceAllowed {
-			return nil, errors.WithStack(ErrNoPermission)
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.NoAccess
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
+			continue
 		}
 		if item.OnSet == nil {
-			return nil, errors.WithStack(ErrUnsupportedOperation)
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.ReadOnly
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
+			continue
 		}
 
 		if err := item.OnSet(varItem.Value); err != nil {
-			return nil, errors.Wrap(err, "OnSet Failed")
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.GenErr
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables,
+				t.getPDUObjectDescription(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
+			continue
 		}
 	}
 	return &ret, nil
