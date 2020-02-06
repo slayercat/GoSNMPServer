@@ -1,6 +1,7 @@
 package GoSNMPServer
 
 import "github.com/pkg/errors"
+import "reflect"
 
 type SNMPServer struct {
 	wconnStream ISnmpServerListener
@@ -45,7 +46,19 @@ func (server *SNMPServer) ServeForever() error {
 	}
 }
 
-func (server *SNMPServer) ServeNextRequest() error {
+func (server *SNMPServer) ServeNextRequest() (err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			switch err.(type) {
+			case error:
+				err = errors.Wrap(err.(error), "ServeNextRequest fails with panic")
+			default:
+				err = errors.Errorf("ServeNextRequest fails with panic. err(type %v)=%v", reflect.TypeOf(err), err)
+			}
+			server.logger.Errorf("ServeNextRequest error: %+v", err)
+			return
+		}
+	}()
 	bytePDU, replayer, err := server.wconnStream.NextSnmp()
 	if err != nil {
 		return err

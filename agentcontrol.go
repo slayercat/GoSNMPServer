@@ -246,7 +246,6 @@ func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, 
 	}
 
 	return subAgent.Serve(i)
-	//return nil, ErrUnsupportedProtoVersion
 }
 
 func (t *MasterAgent) SyncConfig() error {
