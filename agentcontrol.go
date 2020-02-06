@@ -180,6 +180,7 @@ func (t *MasterAgent) marshalPkt(pkt *gosnmp.SnmpPacket, err error) ([]byte, err
 	// when err. marshal error pkt
 	if err != nil {
 		t.Logger.Debugf("Will marshal: %v", err)
+
 		errFill := t.fillErrorPkt(err, pkt)
 		if errFill != nil {
 			return nil, err
@@ -218,8 +219,9 @@ func (t *MasterAgent) getUsmSecurityParametersFromUser(username string) (*gosnmp
 }
 
 func (t *MasterAgent) fillErrorPkt(err error, io *gosnmp.SnmpPacket) error {
+	io.PDUType = gosnmp.GetResponse
 	if errors.Is(err, ErrNoSNMPInstance) {
-		io.Error = gosnmp.ResourceUnavailable
+		io.Error = gosnmp.NoAccess
 	} else if errors.Is(err, ErrUnknownOID) {
 		io.Error = gosnmp.NoSuchName
 	} else if errors.Is(err, ErrUnsupportedOperation) {
@@ -240,7 +242,7 @@ func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, 
 	community := getPktContextOrCommunity(i)
 	subAgent := t.findForSubAgent(community)
 	if subAgent == nil {
-		return nil, errors.WithStack(ErrNoSNMPInstance)
+		return i, errors.WithStack(ErrNoSNMPInstance)
 	}
 
 	return subAgent.Serve(i)
@@ -263,9 +265,10 @@ func (t *MasterAgent) SyncConfig() error {
 			if _, exists := t.priv.communityToSubAgent[val]; exists {
 				return errors.Errorf("SyncConfig: Config Error: duplicate value:%s", val)
 			}
+			t.Logger.Debugf("communityToSubAgent: val=%v, current=%p", val, current)
 			t.priv.communityToSubAgent[val] = current
 		}
-
+		current.Logger = t.Logger
 		if err := current.SyncConfig(); err != nil {
 			return err
 		}
@@ -287,7 +290,6 @@ func (t *SubAgent) SyncConfig() error {
 }
 
 func (t *SubAgent) Serve(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
-	//find for oid
 	switch i.PDUType {
 	case gosnmp.GetRequest:
 		return t.serveGetRequest(i)
@@ -401,10 +403,12 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		}
 		ret.Variables = append(ret.Variables, gosnmp.SnmpPDU{
 			Name:   varItem.Name,
-			Type:   varItem.Type,
+			Type:   item.Type,
 			Value:  valtoRet,
 			Logger: &SnmpLoggerAdapter{t.Logger},
 		})
+		//		t.Logger.Debugf("xxx3. val=%v err=%v. ret.Variables=%v", valtoRet, err,ret.Variables)
+
 	}
 
 	return &ret, nil

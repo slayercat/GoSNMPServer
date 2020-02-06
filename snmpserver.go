@@ -26,7 +26,7 @@ func (server *SNMPServer) ListenUDP(l3proto, address string) error {
 	if err != nil {
 		return err
 	}
-	server.logger.Infof("ListenUDP: %s %s", l3proto, address)
+	server.logger.Infof("ListenUDP: l3proto=%s, address=%s", l3proto, address)
 	i.SetupLogger(server.logger)
 	server.wconnStream = i
 	return nil

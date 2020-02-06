@@ -38,7 +38,7 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 					{
 						OID:   "1.3.6.1.2.1.43.14.1.1.6.1.5",
 						Type:  gosnmp.Counter64,
-						OnGet: func() (interface{}, error) { return 0x0, nil },
+						OnGet: func() (interface{}, error) { return uint64(0x1234), nil },
 					},
 				},
 			},
@@ -73,6 +73,8 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv1GetRequest() {
 	assert.Equal(suite.T(), "public", response.Community)
 	assert.Equal(suite.T(), 1, len(response.Variables))
 	assert.Equal(suite.T(), ".1.3.6.1.2.1.43.14.1.1.6.1.5", response.Variables[0].Name)
+	assert.Equal(suite.T(), gosnmp.Counter64, response.Variables[0].Type)
+	assert.Equal(suite.T(), uint64(0x1234), response.Variables[0].Value)
 	assert.Equal(suite.T(), uint32(48), response.RequestID)
 }
 
