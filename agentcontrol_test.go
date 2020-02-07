@@ -32,7 +32,7 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 				},
 			},
 		},
-		SubAgents: []SubAgent{
+		SubAgents: []*SubAgent{
 			{
 				OIDs: []PDUValueControlItem{
 					{
@@ -144,6 +144,34 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3EncryptedRequest() {
 	assert.NotEqual(suite.T(), 0, response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineTime)
 	assert.Equal(suite.T(), uint32(821490645), response.MsgID)
 	assert.Equal(suite.T(), gosnmp.NoSuchInstance, response.Variables[0].Type)
+}
+
+func (suite *ResponseForBufferTestSuite) TestSnmpv3NotEncrypted() {
+	buf := suite.snmpv3NotEncrypted()
+	var err error
+
+	responsebytes, err := suite.handle.ResponseForBuffer(buf)
+
+	if err != nil {
+		suite.T().Errorf("meet error: %+v", err)
+	}
+	if responsebytes == nil {
+		suite.T().Errorf("response shell not be nil")
+	}
+	suite.handle.Logger.Infof("Response done. try decode")
+	var handle = gosnmp.GoSNMP{}
+	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	response, err := handle.SnmpDecodePacket(responsebytes)
+	if err != nil || response == nil {
+		suite.T().Errorf("meet error: %+v", err)
+	}
+	assert.Equal(suite.T(), "", response.Community)
+
+	assert.NotEqual(suite.T(), nil, response.SecurityParameters)
+	assert.NotEqual(suite.T(), "", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineID)
+	assert.Equal(suite.T(), "testuser", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).UserName)
+	assert.Equal(suite.T(), uint32(1), response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineBoots)
+	assert.NotEqual(suite.T(), 0, response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineTime)
 }
 
 // Simple Network Management Protocol
@@ -274,6 +302,60 @@ func (suite *ResponseForBufferTestSuite) snmpv3Encrypted() []byte {
 		0xf0, 0x67, 0x84, 0xc6, 0x7c, 0x15, 0xf1, 0x44,
 		0x91, 0x5d, 0x9b, 0xc2, 0xc6, 0xa0, 0x46, 0x1d,
 		0xa9, 0x2a, 0x4a, 0xbe}
+}
+
+// Simple Network Management Protocol
+//     msgVersion: snmpv3 (3)
+//     msgGlobalData
+//         msgID: 318530550
+//         msgMaxSize: 65507
+//         msgFlags: 04
+//             .... .1.. = Reportable: Set
+//             .... ..0. = Encrypted: Not set
+//             .... ...0 = Authenticated: Not set
+//         msgSecurityModel: USM (3)
+//     msgAuthoritativeEngineID: 80004fb8054445534b544f502d4a3732533245343ab63bc8
+//     msgAuthoritativeEngineBoots: 1
+//     msgAuthoritativeEngineTime: 173735
+//     msgUserName: testuser
+//     msgAuthenticationParameters: <MISSING>
+//     msgPrivacyParameters: <MISSING>
+//     msgData: plaintext (0)
+//         plaintext
+//             contextEngineID: 80004fb8054445534b544f502d4a3732533245343ab63bc8
+//             contextName: public
+//             data: get-request (0)
+//                 get-request
+//                     request-id: 1981244075
+//                     error-status: noError (0)
+//                     error-index: 0
+//                     variable-bindings: 1 item
+//                         1.3.6.1.2.1.43.14.1.1.6.1.5: Value (Null)
+//                             Object Name: 1.3.6.1.2.1.43.14.1.1.6.1.5 (iso.3.6.1.2.1.43.14.1.1.6.1.5)
+//                             Value (Null)
+
+func (suite *ResponseForBufferTestSuite) snmpv3NotEncrypted() []byte {
+	return []byte{
+		0x30, 0x81, 0x90, 0x02, 0x01, 0x03, 0x30, 0x11,
+		0x02, 0x04, 0x12, 0xfc, 0x63, 0xf6, 0x02, 0x03,
+		0x00, 0xff, 0xe3, 0x04, 0x01, 0x04, 0x02, 0x01,
+		0x03, 0x04, 0x32, 0x30, 0x30, 0x04, 0x18, 0x80,
+		0x00, 0x4f, 0xb8, 0x05, 0x44, 0x45, 0x53, 0x4b,
+		0x54, 0x4f, 0x50, 0x2d, 0x4a, 0x37, 0x32, 0x53,
+		0x32, 0x45, 0x34, 0x3a, 0xb6, 0x3b, 0xc8, 0x02,
+		0x01, 0x01, 0x02, 0x03, 0x02, 0xa6, 0xa7, 0x04,
+		0x08, 0x74, 0x65, 0x73, 0x74, 0x75, 0x73, 0x65,
+		0x72, 0x04, 0x00, 0x04, 0x00, 0x30, 0x44, 0x04,
+		0x18, 0x80, 0x00, 0x4f, 0xb8, 0x05, 0x44, 0x45,
+		0x53, 0x4b, 0x54, 0x4f, 0x50, 0x2d, 0x4a, 0x37,
+		0x32, 0x53, 0x32, 0x45, 0x34, 0x3a, 0xb6, 0x3b,
+		0xc8, 0x04, 0x06, 0x70, 0x75, 0x62, 0x6c, 0x69,
+		0x63, 0xa0, 0x20, 0x02, 0x04, 0x76, 0x17, 0x62,
+		0xab, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00, 0x30,
+		0x12, 0x30, 0x10, 0x06, 0x0c, 0x2b, 0x06, 0x01,
+		0x02, 0x01, 0x2b, 0x0e, 0x01, 0x01, 0x06, 0x01,
+		0x05, 0x05, 0x00,
+	}
 }
 
 func TestResponseForBufferTestSuite(t *testing.T) {

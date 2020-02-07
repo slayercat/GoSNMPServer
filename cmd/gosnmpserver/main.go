@@ -49,7 +49,7 @@ func runServer(c *cli.Context) error {
 				},
 			},
 		},
-		SubAgents: []GoSNMPServer.SubAgent{
+		SubAgents: []*GoSNMPServer.SubAgent{
 			{
 				CommunityIDs: []string{c.String("community")},
 				OIDs: []GoSNMPServer.PDUValueControlItem{

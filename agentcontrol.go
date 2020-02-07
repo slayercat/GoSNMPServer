@@ -16,7 +16,7 @@ type FuncGetAuthoritativeEngineTime func() uint32
 type MasterAgent struct {
 	SecurityConfig SecurityConfig
 
-	SubAgents []SubAgent
+	SubAgents []*SubAgent
 
 	Logger ILogger
 
@@ -36,6 +36,8 @@ type SubAgent struct {
 	OIDs []PDUValueControlItem
 
 	Logger ILogger
+
+	master *MasterAgent
 }
 
 type SecurityConfig struct {
@@ -104,10 +106,6 @@ func (t *MasterAgent) syncAndCheck() error {
 		t.SecurityConfig.OnGetAuthoritativeEngineTime = DefaultGetAuthoritativeEngineTime
 	}
 
-	for _, each := range t.SubAgents {
-		each.Logger = t.Logger
-	}
-
 	if t.SecurityConfig.AuthoritativeEngineID.EngineIDData == "" {
 		t.SecurityConfig.AuthoritativeEngineID = DefaultAuthoritativeEngineID()
 	}
@@ -119,6 +117,16 @@ func (t *MasterAgent) ReadyForWork() error {
 		return err
 	}
 	return t.SyncConfig()
+}
+
+func (t *MasterAgent) getUserNameFromRequest(request *gosnmp.SnmpPacket) string {
+	var username string
+	if val, ok := request.SecurityParameters.(*gosnmp.UsmSecurityParameters); !ok {
+		panic(errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP .Unknown Type:%v", reflect.TypeOf(request.SecurityParameters)))
+	} else {
+		username = val.UserName
+	}
+	return username
 }
 
 func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
@@ -136,8 +144,8 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 	case gosnmp.Version3:
 		// check for initial - discover response / non Privacy Items
 		if err == nil {
-			request.SecurityParameters = mb
 			val, err := t.ResponseForPkt(request)
+
 			if val == nil {
 				return t.marshalPkt(request, err)
 			} else {
@@ -149,12 +157,7 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		if request.SecurityParameters == nil {
 			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
 		}
-		var username string
-		if val, ok := request.SecurityParameters.(*gosnmp.UsmSecurityParameters); !ok {
-			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v.Unknown Type:%v", err, reflect.TypeOf(request.SecurityParameters))
-		} else {
-			username = val.UserName
-		}
+		username := t.getUserNameFromRequest(request)
 		usm, err := t.getUsmSecurityParametersFromUser(username)
 		if err != nil {
 			return nil, err
@@ -244,15 +247,20 @@ func (t *MasterAgent) ResponseForPkt(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, 
 	if subAgent == nil {
 		return i, errors.WithStack(ErrNoSNMPInstance)
 	}
-
 	return subAgent.Serve(i)
 }
 
 func (t *MasterAgent) SyncConfig() error {
 	t.priv.defaultSubAgent = nil
 	t.priv.communityToSubAgent = make(map[string]*SubAgent)
-	for id := range t.SubAgents {
-		current := &t.SubAgents[id]
+
+	for id, current := range t.SubAgents {
+		t.SubAgents[id].Logger = t.Logger
+		t.SubAgents[id].master = t
+		if err := t.SubAgents[id].SyncConfig(); err != nil {
+			return err
+		}
+
 		if len(current.CommunityIDs) == 0 {
 			if t.priv.defaultSubAgent != nil {
 				return errors.Errorf("SyncConfig: Config Error: duplicate default agent")
@@ -267,10 +275,7 @@ func (t *MasterAgent) SyncConfig() error {
 			t.Logger.Debugf("communityToSubAgent: val=%v, current=%p", val, current)
 			t.priv.communityToSubAgent[val] = current
 		}
-		current.Logger = t.Logger
-		if err := current.SyncConfig(); err != nil {
-			return err
-		}
+
 	}
 	return nil
 }
@@ -353,10 +358,15 @@ func (t *SubAgent) getPDUObjectDescription(Name, str string) gosnmp.SnmpPDU {
 
 func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
+	t.Logger.Debugf("before copy: %v...After copy:%v",
+		i.SecurityParameters.(*gosnmp.UsmSecurityParameters),
+		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
 	ret.PDUType = gosnmp.GetResponse
 	ret.Variables = []gosnmp.SnmpPDU{}
 	if i.Version == gosnmp.Version3 && len(i.Variables) == 0 {
 		// SNMP V3 hello packet
+		mb, _ := t.master.getUsmSecurityParametersFromUser("")
+		ret.SecurityParameters = mb
 		ret.PDUType = gosnmp.Report
 		ret.Variables = append(ret.Variables, t.getPDUHelloVariable())
 		return &ret, nil
