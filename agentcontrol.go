@@ -356,6 +356,26 @@ func (t *SubAgent) getPDUObjectDescription(Name, str string) gosnmp.SnmpPDU {
 	)
 }
 
+func (t *SubAgent) getForPDUValueControlResult(item *PDUValueControlItem,
+	i *gosnmp.SnmpPacket) (gosnmp.SnmpPDU, gosnmp.SNMPError) {
+	if t.checkPermission(item, i) != PermissionAllowanceAllowed {
+		return t.getPDUNil(item.OID), gosnmp.NoAccess
+	}
+	if item.OnGet == nil {
+		return t.getPDUNil(item.OID), gosnmp.ResourceUnavailable
+	}
+	valtoRet, err := item.OnGet()
+	if err != nil {
+		return t.getPDUObjectDescription(item.OID, fmt.Sprintf("ERROR: %+v", err)), gosnmp.GenErr
+	}
+	return gosnmp.SnmpPDU{
+		Name:   item.OID,
+		Type:   item.Type,
+		Value:  valtoRet,
+		Logger: &SnmpLoggerAdapter{t.Logger},
+	}, gosnmp.NoError
+}
+
 func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	t.Logger.Debugf("before copy: %v...After copy:%v",
@@ -384,40 +404,12 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		if err != nil {
 			return nil, err
 		}
-		if t.checkPermission(item, i) != PermissionAllowanceAllowed {
-			if ret.Error == gosnmp.NoError {
-				ret.Error = gosnmp.NoAccess
-				ret.ErrorIndex = uint8(id)
-			}
-			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
-			continue
+		ctl, snmperr := t.getForPDUValueControlResult(item, i)
+		if snmperr != gosnmp.NoError && ret.Error != gosnmp.NoError {
+			ret.Error = snmperr
+			ret.ErrorIndex = uint8(id)
 		}
-		if item.OnGet == nil {
-			if ret.Error == gosnmp.NoError {
-				ret.Error = gosnmp.ResourceUnavailable
-				ret.ErrorIndex = uint8(id)
-			}
-			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
-			continue
-		}
-		valtoRet, err := item.OnGet()
-		if err != nil {
-			if ret.Error == gosnmp.NoError {
-				ret.Error = gosnmp.GenErr
-				ret.ErrorIndex = uint8(id)
-			}
-			ret.Variables = append(ret.Variables,
-				t.getPDUObjectDescription(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
-			continue
-		}
-		ret.Variables = append(ret.Variables, gosnmp.SnmpPDU{
-			Name:   varItem.Name,
-			Type:   item.Type,
-			Value:  valtoRet,
-			Logger: &SnmpLoggerAdapter{t.Logger},
-		})
-		//		t.Logger.Debugf("xxx3. val=%v err=%v. ret.Variables=%v", valtoRet, err,ret.Variables)
-
+		ret.Variables = append(ret.Variables, ctl)
 	}
 
 	return &ret, nil
