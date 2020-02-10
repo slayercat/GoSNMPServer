@@ -34,7 +34,7 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 		},
 		SubAgents: []*SubAgent{
 			{
-				OIDs: []PDUValueControlItem{
+				OIDs: []*PDUValueControlItem{
 					{
 						OID:   "1.3.6.1.2.1.43.14.1.1.6.1.5",
 						Type:  gosnmp.Counter64,

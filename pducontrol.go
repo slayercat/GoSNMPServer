@@ -1,5 +1,7 @@
 package GoSNMPServer
 
+import "strings"
+
 import "github.com/slayercat/gosnmp"
 
 // PermissionAllowance  ENUM controls for Allowance
@@ -47,4 +49,20 @@ type PDUValueControlItem struct {
 
 	//Document for this PDU Item. ignored by the program.
 	Document string
+}
+
+type byOID []*PDUValueControlItem
+
+func (x byOID) Len() int {
+	return len(x)
+}
+
+func (x byOID) Less(i, j int) bool {
+	stripedI := strings.Trim(x[i].OID, ".")
+	stripedJ := strings.Trim(x[j].OID, ".")
+	return stripedI < stripedJ
+}
+
+func (x byOID) Swap(i, j int) {
+	x[i], x[j] = x[j], x[i]
 }

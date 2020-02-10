@@ -4,6 +4,7 @@ import "time"
 import "strings"
 import "reflect"
 import "fmt"
+import "sort"
 import "github.com/shirou/gopsutil/host"
 
 import "github.com/slayercat/gosnmp"
@@ -33,7 +34,7 @@ type SubAgent struct {
 	CommunityIDs []string
 
 	// OIDs for Read/Write actions
-	OIDs []PDUValueControlItem
+	OIDs []*PDUValueControlItem
 
 	Logger ILogger
 
@@ -290,6 +291,7 @@ func (t *MasterAgent) findForSubAgent(community string) *SubAgent {
 
 func (t *SubAgent) SyncConfig() error {
 	//TODO: here
+	sort.Sort(byOID(t.OIDs))
 	return nil
 }
 
@@ -392,8 +394,8 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		return &ret, nil
 	}
 	for id, varItem := range i.Variables {
-		item, err := t.getForPDUValueControl(varItem.Name)
-		if errors.Is(err, ErrUnknownOID) {
+		item, _ := t.getForPDUValueControl(varItem.Name)
+		if item == nil {
 			if ret.Error == gosnmp.NoError {
 				ret.Error = gosnmp.NoSuchName
 				ret.ErrorIndex = uint8(id)
@@ -401,9 +403,7 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
 			continue
 		}
-		if err != nil {
-			return nil, err
-		}
+
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
 		if snmperr != gosnmp.NoError && ret.Error != gosnmp.NoError {
 			ret.Error = snmperr
@@ -417,6 +417,11 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 }
 
 func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
+	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
+	t.Logger.Debugf("before copy: %v...After copy:%v",
+		i.SecurityParameters.(*gosnmp.UsmSecurityParameters),
+		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
+	ret.PDUType = gosnmp.GetResponse
 	panic("NOTGOOD")
 }
 
@@ -426,17 +431,14 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	ret.PDUType = gosnmp.GetResponse
 	for id, varItem := range i.Variables {
-		item, err := t.getForPDUValueControl(varItem.Name)
-		if errors.Is(err, ErrUnknownOID) {
+		item, _ := t.getForPDUValueControl(varItem.Name)
+		if item == nil {
 			if ret.Error == gosnmp.NoError {
 				ret.Error = gosnmp.NoSuchName
 				ret.ErrorIndex = uint8(id)
 			}
 			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
 			continue
-		}
-		if err != nil {
-			return nil, err
 		}
 		if t.checkPermission(item, i) != PermissionAllowanceAllowed {
 			if ret.Error == gosnmp.NoError {
@@ -468,14 +470,15 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	return &ret, nil
 }
 
-func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, error) {
+func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
 	striped := strings.Trim(oid, ".")
-	for id, val := range t.OIDs {
-		if val.OID == oid || val.OID == striped {
-			return &t.OIDs[id], nil
-		}
+	i := sort.Search(len(t.OIDs), func(i int) bool {
+		return t.OIDs[i].OID == striped || t.OIDs[i].OID == oid
+	})
+	if i < len(t.OIDs) {
+		return t.OIDs[i], i
 	}
-	return nil, errors.WithStack(ErrUnknownOID)
+	return nil, -1
 }
 
 func DefaultAuthoritativeEngineID() SNMPEngineID {
