@@ -146,17 +146,28 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		vhandle.SecurityParameters = usm
+		vhandle.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 usm.UserName,
+			AuthenticationProtocol:   usm.AuthenticationProtocol,
+			PrivacyProtocol:          usm.PrivacyProtocol,
+			AuthenticationPassphrase: usm.AuthenticationPassphrase,
+			PrivacyPassphrase:        usm.PrivacyPassphrase,
+			Logger:                   vhandle.Logger,
+		}
 		request, err := vhandle.SnmpDecodePacket(i)
 		if err != nil {
 			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
 		}
 		val, err := t.ResponseForPkt(request)
 		if val == nil {
-			request.SecurityParameters = usm
+			request.SecurityParameters = vhandle.SecurityParameters
 			return t.marshalPkt(request, err)
 		} else {
-			val.SecurityParameters = usm
+			securityParamters := usm
+			securityParamters.GenKeys()
+			securityParamters.GenSalt()
+			val.SecurityParameters = securityParamters
+
 			return t.marshalPkt(val, err)
 		}
 	}
@@ -192,12 +203,10 @@ func (t *MasterAgent) getUsmSecurityParametersFromUser(username string) (*gosnmp
 	}
 	if val := t.SecurityConfig.FindForUser(username); val != nil {
 		fval := val.Copy().(*gosnmp.UsmSecurityParameters)
-		var salt = make([]byte, 8)
-		fval.PrivacyParameters = salt
+		fval.Logger = &SnmpLoggerAdapter{t.Logger}
 		fval.AuthoritativeEngineID = string(t.SecurityConfig.AuthoritativeEngineID.Marshal())
 		fval.AuthoritativeEngineBoots = t.SecurityConfig.AuthoritativeEngineBoots
 		fval.AuthoritativeEngineTime = t.SecurityConfig.OnGetAuthoritativeEngineTime()
-		fval.Logger = &SnmpLoggerAdapter{t.Logger}
 		return fval, nil
 	} else {
 		return nil, errors.WithStack(ErrNoPermission)

@@ -125,6 +125,7 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
 	ret.PDUType = gosnmp.GetResponse
 	ret.Variables = []gosnmp.SnmpPDU{}
+	t.Logger.Infof("i.Version == %v len(i.Variables) = %v.", i.Version, len(i.Variables))
 	if i.Version == gosnmp.Version3 && len(i.Variables) == 0 {
 		// SNMP V3 hello packet
 		mb, _ := t.master.getUsmSecurityParametersFromUser("")
