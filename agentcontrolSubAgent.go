@@ -183,6 +183,9 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 	}
 	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v", id, length)
 	for iid, item := range t.OIDs[id:length] {
+		if item.NonWalkable || item.OnGet == nil {
+			continue // skip non-walkable items
+		}
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
 		if snmperr != gosnmp.NoError && ret.Error != gosnmp.NoError {
 			ret.Error = snmperr
