@@ -56,7 +56,7 @@ func runServer(c *cli.Context) error {
 					{
 						OID:   "1.3.6.1.2.1.43.14.1.1.6.1.5",
 						Type:  gosnmp.Counter64,
-						OnGet: func() (interface{}, error) { return uint64(1234), nil },
+						OnGet: func() (interface{}, error) { return Asn1Counter64Wrap(1234), nil },
 					},
 				},
 			},

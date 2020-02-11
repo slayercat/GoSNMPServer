@@ -1,7 +1,7 @@
 package GoSNMPServer
 
 import "strings"
-
+import "net"
 import "github.com/slayercat/gosnmp"
 
 // PermissionAllowance  ENUM controls for Allowance
@@ -50,6 +50,45 @@ type PDUValueControlItem struct {
 	//Document for this PDU Item. ignored by the program.
 	Document string
 }
+
+func Asn1BooleanUnwrap(i interface{}) bool { return i.(bool) }
+func Asn1BooleanWrap(i bool) interface{}   { return i }
+
+func Asn1IntegerUnwrap(i interface{}) int { return i.(int) }
+func Asn1IntegerWrap(i int) interface{}   { return i }
+
+func Asn1BitStringUnwrap(i interface{}) string { return i.(string) }
+func Asn1BitStringWrap(i string) interface{}   { return i }
+
+func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
+func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
+
+func Asn1ObjectDescriptionUnwrap(i interface{}) string { return i.(string) }
+func Asn1ObjectDescriptionWrap(i string) interface{}   { return i }
+
+func Asn1IPAddressUnwrap(i interface{}) net.IP { return i.(net.IP) }
+func Asn1IPAddressWrap(i net.IP) interface{}   { return i }
+
+func Asn1Counter32Unwrap(i interface{}) uint { return i.(uint) }
+func Asn1Counter32Wrap(i uint) interface{}   { return i }
+
+func Asn1Gauge32Unwrap(i interface{}) uint { return i.(uint) }
+func Asn1Gauge32Wrap(i uint) interface{}   { return i }
+
+func Asn1TimeTicksUnwrap(i interface{}) uint32 { return i.(uint32) }
+func Asn1TimeTicksWrap(i uint32) interface{}   { return i }
+
+func Asn1Counter64Unwrap(i interface{}) uint64 { return i.(uint64) }
+func Asn1Counter64Wrap(i uint64) interface{}   { return i }
+
+func Asn1Uinteger32Unwrap(i interface{}) uint32 { return i.(uint32) }
+func Asn1Uinteger32Wrap(i uint32) interface{}   { return i }
+
+func Asn1OpaqueFloatUnwrap(i interface{}) float32 { return i.(float32) }
+func Asn1OpaqueFloatWrap(i float32) interface{}   { return i }
+
+func Asn1OpaqueDoubleUnwrap(i interface{}) float64 { return i.(float64) }
+func Asn1OpaqueDoubleWrap(i float64) interface{}   { return i }
 
 type byOID []*PDUValueControlItem
 

@@ -45,7 +45,7 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 					{
 						OID:   "1.3.6.1.2.1.43.14.1.1.6.1.5",
 						Type:  gosnmp.Counter64,
-						OnGet: func() (interface{}, error) { return uint64(0x1234), nil },
+						OnGet: func() (interface{}, error) { return Asn1Counter64Wrap(0x1234), nil },
 					},
 				},
 			},
