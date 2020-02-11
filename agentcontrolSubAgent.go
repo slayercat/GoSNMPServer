@@ -21,7 +21,6 @@ type SubAgent struct {
 	master *MasterAgent
 }
 
-
 func (t *SubAgent) SyncConfig() error {
 	//TODO: here
 	sort.Sort(byOID(t.OIDs))
@@ -163,33 +162,26 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 		i.SecurityParameters.(*gosnmp.UsmSecurityParameters),
 		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
 	ret.PDUType = gosnmp.GetResponse
+	ret.Variables = []gosnmp.SnmpPDU{}
 	length := len(i.Variables)
-	query_for_oid := i.Variables[length - 1].Name
-	query_for_oid = strings.TrimLeft(query_for_oid, ".0")
-	item, id := t.getForPDUValueControl(query_for_oid)
-	t.Logger.Debugf("t.getForPDUValueControl. query_for_oid=%v item=%v id=%v",query_for_oid,item, id)
-	if  id + 1 >= length{
+	queryForOid := i.Variables[length-1].Name
+	queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
+	item, id := t.getForPDUValueControl(queryForOidStriped)
+	t.Logger.Debugf("t.getForPDUValueControl. query_for_oid=%v item=%v id=%v", queryForOid, item, id)
+	if item != nil {
+		id += 1
+	}
+	if id >= length {
 		// NOT find for the last
-		ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(query_for_oid))
+		ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
 		return &ret, nil
 	}
-	if item == nil {
-		id+=1
-	}
-	if length + id > len(t.OIDs) {
+
+	if length+id > len(t.OIDs) {
 		length = len(t.OIDs) - id
 	}
-	for iid, varItem := range i.Variables[id: length] {
-		item, _ := t.getForPDUValueControl(varItem.Name)
-		if item == nil {
-			if ret.Error == gosnmp.NoError {
-				ret.Error = gosnmp.NoSuchName
-				ret.ErrorIndex = uint8(iid)
-			}
-			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
-			continue
-		}
-
+	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v", id, length)
+	for iid, item := range t.OIDs[id:length] {
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
 		if snmperr != gosnmp.NoError && ret.Error != gosnmp.NoError {
 			ret.Error = snmperr
@@ -248,10 +240,15 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
 	striped := strings.Trim(oid, ".")
+	withDot := "." + striped
 	i := sort.Search(len(t.OIDs), func(i int) bool {
-		return t.OIDs[i].OID == striped || t.OIDs[i].OID == oid
+		if strings.HasPrefix(t.OIDs[i].OID, ".") {
+			return t.OIDs[i].OID >= withDot
+		} else {
+			return t.OIDs[i].OID >= striped
+		}
 	})
-	if i < len(t.OIDs)   {
+	if i < len(t.OIDs) {
 		if t.OIDs[i].OID == striped || t.OIDs[i].OID == oid {
 			return t.OIDs[i], i
 		}

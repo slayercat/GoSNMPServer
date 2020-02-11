@@ -24,7 +24,6 @@ type MasterAgent struct {
 	}
 }
 
-
 type SecurityConfig struct {
 	NoSecurity bool
 
