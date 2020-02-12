@@ -1,7 +1,8 @@
 package main
 
 import "os"
-
+import "strings"
+import "github.com/sirupsen/logrus"
 import "github.com/slayercat/gosnmp"
 import "github.com/slayercat/GoSNMPServer"
 import "github.com/slayercat/GoSNMPServer/mibImps/ucdMib"
@@ -17,6 +18,7 @@ func makeApp() *cli.App {
 				Name:    "RunServer",
 				Aliases: []string{"run-server"},
 				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "logLevel", Value: "info"},
 					&cli.StringFlag{Name: "community", Value: "public"},
 					&cli.StringFlag{Name: "bindTo", Value: "127.0.0.1:1161"},
 					&cli.StringFlag{Name: "v3Username", Value: "testuser"},
@@ -36,6 +38,19 @@ func main() {
 
 func runServer(c *cli.Context) error {
 	logger := GoSNMPServer.NewDefaultLogger()
+	switch strings.ToLower(c.String("logLevel")) {
+	case "fatal":
+		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.FatalLevel
+	case "error":
+		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.ErrorLevel
+	case "info":
+		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.InfoLevel
+	case "debug":
+		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.DebugLevel
+	case "trace":
+		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.TraceLevel
+	}
+
 	master := GoSNMPServer.MasterAgent{
 		Logger: logger,
 		SecurityConfig: GoSNMPServer.SecurityConfig{

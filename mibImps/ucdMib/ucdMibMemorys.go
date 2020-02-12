@@ -57,7 +57,7 @@ func AllMemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
 			Document: "memTotalReal",
 		},
 		{
-			OID:  "1.3.6.1.4.1.2021.4.5",
+			OID:  "1.3.6.1.4.1.2021.4.6",
 			Type: gosnmp.Integer,
 			OnGet: func() (value interface{}, err error) {
 				if val, err := mem.VirtualMemory(); err == nil {
@@ -121,7 +121,7 @@ func AllMemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
 			Document: "memSwapError",
 		},
 		{
-			OID:      "1.3.6.1.4.1.2021.4.100",
+			OID:      "1.3.6.1.4.1.2021.4.101",
 			Type:     gosnmp.OctetString,
 			OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1OctetStringWrap(""), nil },
 			Document: "memSwapErrorMsg",

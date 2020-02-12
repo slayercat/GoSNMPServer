@@ -22,8 +22,15 @@ type SubAgent struct {
 }
 
 func (t *SubAgent) SyncConfig() error {
-	//TODO: here
 	sort.Sort(byOID(t.OIDs))
+	for id, each := range t.OIDs {
+		t.Logger.Debugf("Sorted OIDs of %v: %v", t.CommunityIDs, each.OID)
+		if id != 0 && t.OIDs[id].OID == t.OIDs[id-1].OID {
+			verr := fmt.Sprintf("community %v: meet duplicate oid %v", t.CommunityIDs, each.OID)
+			t.Logger.Errorf(verr)
+			return errors.New(verr)
+		}
+	}
 	return nil
 }
 
@@ -125,7 +132,7 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
 	ret.PDUType = gosnmp.GetResponse
 	ret.Variables = []gosnmp.SnmpPDU{}
-	t.Logger.Infof("i.Version == %v len(i.Variables) = %v.", i.Version, len(i.Variables))
+	t.Logger.Debugf("i.Version == %v len(i.Variables) = %v.", i.Version, len(i.Variables))
 	if i.Version == gosnmp.Version3 && len(i.Variables) == 0 {
 		// SNMP V3 hello packet
 		mb, _ := t.master.getUsmSecurityParametersFromUser("")
@@ -159,20 +166,19 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 
 func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
-	t.Logger.Debugf("before copy: %v...After copy:%v",
-		i.SecurityParameters.(*gosnmp.UsmSecurityParameters),
-		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
+
 	ret.PDUType = gosnmp.GetResponse
 	ret.Variables = []gosnmp.SnmpPDU{}
 	length := len(i.Variables)
 	queryForOid := i.Variables[length-1].Name
 	queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
+	t.Logger.Debugf("serveGetNextRequest of %v", queryForOid)
 	item, id := t.getForPDUValueControl(queryForOidStriped)
 	t.Logger.Debugf("t.getForPDUValueControl. query_for_oid=%v item=%v id=%v", queryForOid, item, id)
 	if item != nil {
 		id += 1
 	}
-	if id >= length {
+	if id >= len(t.OIDs) {
 		// NOT find for the last
 		ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
 		return &ret, nil
@@ -181,8 +187,8 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 	if length+id > len(t.OIDs) {
 		length = len(t.OIDs) - id
 	}
-	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v", id, length)
-	for iid, item := range t.OIDs[id:length] {
+	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v. len(t.OIDs)=%v", id, length, len(t.OIDs))
+	for iid, item := range t.OIDs[id : id+length] {
 		if item.NonWalkable || item.OnGet == nil {
 			continue // skip non-walkable items
 		}
@@ -243,17 +249,14 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 }
 
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
-	striped := strings.Trim(oid, ".")
-	withDot := "." + striped
+	toQuery := oidToByteString(oid)
 	i := sort.Search(len(t.OIDs), func(i int) bool {
-		if strings.HasPrefix(t.OIDs[i].OID, ".") {
-			return t.OIDs[i].OID >= withDot
-		} else {
-			return t.OIDs[i].OID >= striped
-		}
+		thisOid := oidToByteString(t.OIDs[i].OID)
+		return thisOid >= toQuery
 	})
 	if i < len(t.OIDs) {
-		if t.OIDs[i].OID == striped || t.OIDs[i].OID == oid {
+		thisOid := oidToByteString(t.OIDs[i].OID)
+		if thisOid == toQuery {
 			return t.OIDs[i], i
 		}
 	}

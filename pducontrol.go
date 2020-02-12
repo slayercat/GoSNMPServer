@@ -1,6 +1,5 @@
 package GoSNMPServer
 
-import "strings"
 import "net"
 import "github.com/slayercat/gosnmp"
 
@@ -100,8 +99,8 @@ func (x byOID) Len() int {
 }
 
 func (x byOID) Less(i, j int) bool {
-	stripedI := strings.Trim(x[i].OID, ".")
-	stripedJ := strings.Trim(x[j].OID, ".")
+	stripedI := oidToByteString(x[i].OID)
+	stripedJ := oidToByteString(x[j].OID)
 	return stripedI < stripedJ
 }
 
