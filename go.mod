@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/procfs v0.0.8
 	github.com/shirou/gopsutil v2.19.12+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/slayercat/gosnmp v1.22.1-0.20200211083801-270fe93c7ff1

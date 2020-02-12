@@ -68,7 +68,7 @@ func runServer(c *cli.Context) error {
 		SubAgents: []*GoSNMPServer.SubAgent{
 			{
 				CommunityIDs: []string{c.String("community")},
-				OIDs:         ucdMib.AllMemoryOIDs(),
+				OIDs:         ucdMib.All(),
 			},
 		},
 	}

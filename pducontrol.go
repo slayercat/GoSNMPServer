@@ -65,9 +65,6 @@ func Asn1OctetStringWrap(i string) interface{}   { return i }
 func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
 
-func Asn1ObjectDescriptionUnwrap(i interface{}) string { return i.(string) }
-func Asn1ObjectDescriptionWrap(i string) interface{}   { return i }
-
 func Asn1IPAddressUnwrap(i interface{}) net.IP { return i.(net.IP) }
 func Asn1IPAddressWrap(i net.IP) interface{}   { return i }
 

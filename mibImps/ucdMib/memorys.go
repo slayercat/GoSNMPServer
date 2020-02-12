@@ -6,8 +6,8 @@ import "github.com/shirou/gopsutil/mem"
 
 // MemoryOIDs Returns a list of memory operation.
 //   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
-func AllMemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
-	return []*GoSNMPServer.PDUValueControlItem{
+func MemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
+	toRet := []*GoSNMPServer.PDUValueControlItem{
 		{
 			OID:      "1.3.6.1.4.1.2021.4.1",
 			Type:     gosnmp.Integer,
@@ -127,4 +127,5 @@ func AllMemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
 			Document: "memSwapErrorMsg",
 		},
 	}
+	return toRet
 }

@@ -23,8 +23,9 @@ type SubAgent struct {
 
 func (t *SubAgent) SyncConfig() error {
 	sort.Sort(byOID(t.OIDs))
+	t.Logger.Infof("Total OIDs of %v: %v", t.CommunityIDs, len(t.OIDs))
 	for id, each := range t.OIDs {
-		t.Logger.Debugf("Sorted OIDs of %v: %v", t.CommunityIDs, each.OID)
+		t.Logger.Infof("OIDs of %v: %v", t.CommunityIDs, each.OID)
 		if id != 0 && t.OIDs[id].OID == t.OIDs[id-1].OID {
 			verr := fmt.Sprintf("community %v: meet duplicate oid %v", t.CommunityIDs, each.OID)
 			t.Logger.Errorf(verr)
@@ -97,10 +98,10 @@ func (t *SubAgent) getPDUNil(Name string) gosnmp.SnmpPDU {
 	)
 }
 
-func (t *SubAgent) getPDUObjectDescription(Name, str string) gosnmp.SnmpPDU {
+func (t *SubAgent) getPDUOctetString(Name, str string) gosnmp.SnmpPDU {
 	return t.getPDU(
 		Name,
-		gosnmp.ObjectDescription,
+		gosnmp.OctetString,
 		str,
 	)
 }
@@ -115,7 +116,7 @@ func (t *SubAgent) getForPDUValueControlResult(item *PDUValueControlItem,
 	}
 	valtoRet, err := item.OnGet()
 	if err != nil {
-		return t.getPDUObjectDescription(item.OID, fmt.Sprintf("ERROR: %+v", err)), gosnmp.GenErr
+		return t.getPDUOctetString(item.OID, fmt.Sprintf("ERROR: %+v", err)), gosnmp.GenErr
 	}
 	return gosnmp.SnmpPDU{
 		Name:   item.OID,
@@ -241,7 +242,7 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 				ret.ErrorIndex = uint8(id)
 			}
 			ret.Variables = append(ret.Variables,
-				t.getPDUObjectDescription(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
+				t.getPDUOctetString(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
 			continue
 		}
 	}
