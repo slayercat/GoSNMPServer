@@ -60,6 +60,9 @@ func Asn1IntegerWrap(i int) interface{}   { return i }
 func Asn1BitStringUnwrap(i interface{}) string { return i.(string) }
 func Asn1BitStringWrap(i string) interface{}   { return i }
 
+func Asn1OctetStringUnwrap(i interface{}) string { return i.(string) }
+func Asn1OctetStringWrap(i string) interface{}   { return i }
+
 func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
 

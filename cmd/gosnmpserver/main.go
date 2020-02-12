@@ -4,6 +4,7 @@ import "os"
 
 import "github.com/slayercat/gosnmp"
 import "github.com/slayercat/GoSNMPServer"
+import "github.com/slayercat/GoSNMPServer/mibImps/ucdMib"
 
 import "github.com/urfave/cli/v2"
 
@@ -52,13 +53,7 @@ func runServer(c *cli.Context) error {
 		SubAgents: []*GoSNMPServer.SubAgent{
 			{
 				CommunityIDs: []string{c.String("community")},
-				OIDs: []*GoSNMPServer.PDUValueControlItem{
-					{
-						OID:   "1.3.6.1.2.1.43.14.1.1.6.1.5",
-						Type:  gosnmp.Counter64,
-						OnGet: func() (interface{}, error) { return GoSNMPServer.Asn1Counter64Wrap(1234), nil },
-					},
-				},
+				OIDs:         ucdMib.AllMemoryOIDs(),
 			},
 		},
 	}
