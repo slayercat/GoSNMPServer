@@ -4,12 +4,25 @@ import "github.com/slayercat/gosnmp"
 import "github.com/slayercat/GoSNMPServer"
 import "github.com/shirou/gopsutil/cpu"
 import "github.com/shirou/gopsutil/disk"
+import "github.com/shirou/gopsutil/host"
 import "github.com/prometheus/procfs"
 
 // SystemStatsOIDs Returns a list of memory operation.
 //   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
 func SystemStatsOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{
+		{
+			OID:  "1.3.6.1.2.1.1.3.0",
+			Type: gosnmp.Integer,
+			OnGet: func() (value interface{}, err error) {
+				if val, err := host.Uptime(); err != nil {
+					return nil, err
+				} else {
+					return GoSNMPServer.Asn1IntegerWrap(int(val)), nil
+				}
+			},
+			Document: "Uptime",
+		},
 		{
 			OID:      "1.3.6.1.4.1.2021.11.1",
 			Type:     gosnmp.Integer,
