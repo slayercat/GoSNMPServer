@@ -50,6 +50,7 @@ func runServer(c *cli.Context) error {
 	case "trace":
 		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.TraceLevel
 	}
+	ucdMib.SetupLogger(logger)
 
 	master := GoSNMPServer.MasterAgent{
 		Logger: logger,
