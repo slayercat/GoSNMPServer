@@ -11,7 +11,7 @@ import "github.com/shirou/gopsutil/net"
 import "github.com/pkg/errors"
 
 // NetworkOIDs Returns a list of network data.
-//   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
+//   see http://www.net-snmp.org/docs/mibs/interfaces.html
 func NetworkOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{}
 	valInterfaces, err := net.Interfaces()

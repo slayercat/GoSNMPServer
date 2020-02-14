@@ -22,7 +22,7 @@ Quick Start
 ```golang
 import "github.com/slayercat/gosnmp"
 import "github.com/slayercat/GoSNMPServer"
-import "github.com/slayercat/GoSNMPServer/mibImps/ucdMib"
+import "github.com/slayercat/GoSNMPServer/mibImps"
 ```
 
 ```golang
@@ -44,7 +44,7 @@ master := GoSNMPServer.MasterAgent{
     SubAgents: []*GoSNMPServer.SubAgent{
         {
             CommunityIDs: []string{c.String("community")},
-            OIDs:         ucdMib.All(),
+            OIDs:         mibImps.All(),
         },
     },
 }
@@ -59,7 +59,7 @@ server.ServeForever()
 
 Serve your own oids
 -----
-This library provides some common oid for use. See [ucdMib](https://github.com/slayercat/GoSNMPServer/tree/master/mibImps/ucdMib) for code, See [![GoDoc](https://godoc.org/github.com/slayercat/GoSNMPServe/mibImps/ucdMibr?status.png)](https://godoc.org/github.com/slayercat/GoSNMPServer/mibImps/ucdMib) here.
+This library provides some common oid for use. See [mibImps](https://github.com/slayercat/GoSNMPServer/tree/master/mibImps) for code, See [![GoDoc](https://godoc.org/github.com/slayercat/GoSNMPServe/mibImpsr?status.png)](https://godoc.org/github.com/slayercat/GoSNMPServer/mibImps) here.
 
 
 Append `GoSNMPServer.PDUValueControlItem` to your SubAgent OIDS:
