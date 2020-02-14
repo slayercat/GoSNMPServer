@@ -1,4 +1,4 @@
-package ucdMib
+package ifMib
 
 import "fmt"
 import "io/ioutil"

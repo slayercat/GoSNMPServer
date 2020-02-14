@@ -5,7 +5,7 @@ import "strings"
 import "github.com/sirupsen/logrus"
 import "github.com/slayercat/gosnmp"
 import "github.com/slayercat/GoSNMPServer"
-import "github.com/slayercat/GoSNMPServer/mibImps/ucdMib"
+import "github.com/slayercat/GoSNMPServer/mibImps"
 
 import "github.com/urfave/cli/v2"
 
@@ -50,7 +50,7 @@ func runServer(c *cli.Context) error {
 	case "trace":
 		logger.(*GoSNMPServer.DefaultLogger).Level = logrus.TraceLevel
 	}
-	ucdMib.SetupLogger(logger)
+	mibImps.SetupLogger(logger)
 
 	master := GoSNMPServer.MasterAgent{
 		Logger: logger,
@@ -69,7 +69,7 @@ func runServer(c *cli.Context) error {
 		SubAgents: []*GoSNMPServer.SubAgent{
 			{
 				CommunityIDs: []string{c.String("community")},
-				OIDs:         ucdMib.All(),
+				OIDs:         mibImps.All(),
 			},
 		},
 	}

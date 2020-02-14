@@ -16,9 +16,8 @@ func All() []*GoSNMPServer.PDUValueControlItem {
 	var result []*GoSNMPServer.PDUValueControlItem
 	result = append(result, MemoryOIDs()...)
 	result = append(result, SystemStatsOIDs()...)
-	result = append(result, NetworkOIDs()...)
 	result = append(result, SystemLoadOIDs()...)
-
+	result = append(result, DiskUsageOIDs()...)
 	return result
 
 }
