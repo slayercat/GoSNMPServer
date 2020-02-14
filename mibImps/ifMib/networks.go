@@ -3,6 +3,8 @@ package ifMib
 import "fmt"
 import "io/ioutil"
 import "runtime"
+import "strings"
+import "encoding/hex"
 import "github.com/slayercat/gosnmp"
 import "github.com/slayercat/GoSNMPServer"
 import "github.com/shirou/gopsutil/net"
@@ -20,6 +22,7 @@ func NetworkOIDs() []*GoSNMPServer.PDUValueControlItem {
 	for _, val := range valInterfaces {
 		ifIndex := val.Index
 		ifName := val.Name
+		ifHWAddr := val.HardwareAddr
 		currentIf := []*GoSNMPServer.PDUValueControlItem{
 			{
 				OID:      fmt.Sprintf("1.3.6.1.2.1.2.2.1.1.%d", ifIndex),
@@ -44,9 +47,16 @@ func NetworkOIDs() []*GoSNMPServer.PDUValueControlItem {
 				Document: "ifType",
 			},
 			{
-				OID:      fmt.Sprintf("1.3.6.1.2.1.2.2.1.6.%d", ifIndex),
-				Type:     gosnmp.OctetString,
-				OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1OctetStringWrap(val.HardwareAddr), nil },
+				OID:  fmt.Sprintf("1.3.6.1.2.1.2.2.1.6.%d", ifIndex),
+				Type: gosnmp.OctetString,
+				OnGet: func() (value interface{}, err error) {
+					targetStr := strings.Replace(ifHWAddr, ":", "", -1)
+					decoded, err := hex.DecodeString(targetStr)
+					if err != nil {
+						return nil, err
+					}
+					return GoSNMPServer.Asn1OctetStringWrap(string(decoded)), nil
+				},
 				Document: "ifPhysAddress",
 			},
 			{

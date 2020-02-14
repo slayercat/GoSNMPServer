@@ -37,6 +37,7 @@ func DiskUsageOIDs(showTheseNameOnly ...NameOverride) []*GoSNMPServer.PDUValueCo
 	toRet := []*GoSNMPServer.PDUValueControlItem{}
 	for id, each := range showTheseNameOnly {
 		cid := id + 1
+		currentDiskItem := each
 		thisDiskID := []*GoSNMPServer.PDUValueControlItem{
 			{
 				OID:      fmt.Sprintf("1.3.6.1.4.1.2021.9.1.1.%d", cid),
@@ -45,22 +46,26 @@ func DiskUsageOIDs(showTheseNameOnly ...NameOverride) []*GoSNMPServer.PDUValueCo
 				Document: "dskIndex",
 			},
 			{
-				OID:      fmt.Sprintf("1.3.6.1.4.1.2021.9.1.2.%d", cid),
-				Type:     gosnmp.OctetString,
-				OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1OctetStringWrap(each.ShowName), nil },
+				OID:  fmt.Sprintf("1.3.6.1.4.1.2021.9.1.2.%d", cid),
+				Type: gosnmp.OctetString,
+				OnGet: func() (value interface{}, err error) {
+					return GoSNMPServer.Asn1OctetStringWrap(currentDiskItem.ShowName), nil
+				},
 				Document: "currentDskPath",
 			},
 			{
-				OID:      fmt.Sprintf("1.3.6.1.4.1.2021.9.1.3.%d", cid),
-				Type:     gosnmp.OctetString,
-				OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1OctetStringWrap(each.ShowName), nil },
+				OID:  fmt.Sprintf("1.3.6.1.4.1.2021.9.1.3.%d", cid),
+				Type: gosnmp.OctetString,
+				OnGet: func() (value interface{}, err error) {
+					return GoSNMPServer.Asn1OctetStringWrap(currentDiskItem.ShowName), nil
+				},
 				Document: "currentDskDevice",
 			},
 			{
 				OID:  fmt.Sprintf("1.3.6.1.4.1.2021.9.1.6.%d", cid),
 				Type: gosnmp.Integer,
 				OnGet: func() (value interface{}, err error) {
-					data, err := disk.Usage(each.RealPath)
+					data, err := disk.Usage(currentDiskItem.RealPath)
 					if err != nil {
 						return nil, err
 					}
@@ -72,7 +77,7 @@ func DiskUsageOIDs(showTheseNameOnly ...NameOverride) []*GoSNMPServer.PDUValueCo
 				OID:  fmt.Sprintf("1.3.6.1.4.1.2021.9.1.7.%d", cid),
 				Type: gosnmp.Integer,
 				OnGet: func() (value interface{}, err error) {
-					data, err := disk.Usage(each.RealPath)
+					data, err := disk.Usage(currentDiskItem.RealPath)
 					if err != nil {
 						return nil, err
 					}
@@ -84,7 +89,7 @@ func DiskUsageOIDs(showTheseNameOnly ...NameOverride) []*GoSNMPServer.PDUValueCo
 				OID:  fmt.Sprintf("1.3.6.1.4.1.2021.9.1.8.%d", cid),
 				Type: gosnmp.Integer,
 				OnGet: func() (value interface{}, err error) {
-					data, err := disk.Usage(each.RealPath)
+					data, err := disk.Usage(currentDiskItem.RealPath)
 					if err != nil {
 						return nil, err
 					}
@@ -96,7 +101,7 @@ func DiskUsageOIDs(showTheseNameOnly ...NameOverride) []*GoSNMPServer.PDUValueCo
 				OID:  fmt.Sprintf("1.3.6.1.4.1.2021.9.1.9.%d", cid),
 				Type: gosnmp.Integer,
 				OnGet: func() (value interface{}, err error) {
-					data, err := disk.Usage(each.RealPath)
+					data, err := disk.Usage(currentDiskItem.RealPath)
 					if err != nil {
 						return nil, err
 					}
