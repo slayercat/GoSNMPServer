@@ -2,6 +2,7 @@ GoSNMPServer
 ======
 [![Build Status](https://travis-ci.org/slayercat/GoSNMPServer.svg?branch=master)](https://travis-ci.org/slayercat/GoSNMPServer)
 [![GoDoc](https://godoc.org/github.com/slayercat/GoSNMPServer?status.png)](https://godoc.org/github.com/slayercat/GoSNMPServer)
+[![codecov](https://codecov.io/gh/slayercat/GoSNMPServer/branch/master/graph/badge.svg)](https://codecov.io/gh/slayercat/GoSNMPServer)
 
 GoSNMPServer is an SNMP server library fully written in Go. It **WILL** provides Server Get,
 GetNext, GetBulk, Walk, BulkWalk, Set and Traps. It supports IPv4 and
