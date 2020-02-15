@@ -21,8 +21,11 @@ install:
  - go get -u golang.org/x/tools/cmd/goimports
 
 script:
+ - echo "" > coverage.txt
  - go build .
- - go test -v ./... -coverprofile=coverage.txt -covermode=atomic
+ - go test -v . -coverprofile=tCoverage1.txt -covermode=atomic
+ - go test -v github.com/slayercat/GoSNMPServer/mibImps -coverprofile=tCoverage2.txt -covermode=atomic
+ - cat tCoverage*.txt > coverage.txt
  - go build github.com/slayercat/GoSNMPServer/cmd/gosnmpserver
 
 after_success:
