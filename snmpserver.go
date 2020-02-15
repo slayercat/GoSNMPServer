@@ -53,6 +53,13 @@ func (server *SNMPServer) ServeForever() error {
 	for {
 		err := server.ServeNextRequest()
 		if err != nil {
+			var opError *net.OpError
+			if errors.As(err, &opError) {
+				server.logger.Debugf("ServeForever: break because of serveNextRequest error %v", opError)
+				return nil
+			}
+
+			server.logger.Errorf("ServeForever: ServeNextRequest error %v [type %v]", err, reflect.TypeOf(err))
 			return errors.Wrap(err, "ServeNextRequest")
 		}
 	}

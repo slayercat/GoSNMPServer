@@ -53,7 +53,9 @@ func (suite *SnmpServerTestSuite) SetupTest() {
 	suite.shandle.ListenUDP("udp4", ":0")
 	go func() {
 		err := suite.shandle.ServeForever()
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
 	}()
 }
 
@@ -88,7 +90,7 @@ func (suite *SnmpServerTestSuite) TestSNMPv3PrivUDPSnmpWalk() {
 	assert.Equal(suite.T(), len(suite.master.SubAgents[0].OIDs)+1, len(lines))
 }
 
-func (suite *SnmpServerTestSuite) TearDown() {
+func (suite *SnmpServerTestSuite) TearDownSuite() {
 	suite.shandle.Shutdown()
 }
 

@@ -22,7 +22,7 @@ install:
 
 script:
  - go build .
- - go test  -coverpkg github.com/slayercat/GoSNMPServer    -v ./... 
+ - go test  -coverpkg ./...   -v ./... 
                         -coverprofile=tCoverage1.txt -covermode=atomic
  - cat tCoverage*.txt > coverage.txt
  - go build github.com/slayercat/GoSNMPServer/cmd/gosnmpserver
