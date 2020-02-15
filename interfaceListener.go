@@ -5,6 +5,7 @@ import "github.com/pkg/errors"
 
 type ISnmpServerListener interface {
 	SetupLogger(ILogger)
+	Address() net.Addr
 	NextSnmp() (snmpbytes []byte, replayer IReplayer, err error)
 	Shutdown()
 }
@@ -36,6 +37,9 @@ func NewUDPListener(l3proto, address string) (ISnmpServerListener, error) {
 
 func (udp *UDPListener) SetupLogger(i ILogger) {
 	udp.logger = i
+}
+func (udp *UDPListener) Address() net.Addr {
+	return udp.conn.LocalAddr()
 }
 
 func (udp *UDPListener) NextSnmp() ([]byte, IReplayer, error) {
