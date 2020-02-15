@@ -191,6 +191,7 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v. len(t.OIDs)=%v", id, length, len(t.OIDs))
 	for iid, item := range t.OIDs[id : id+length] {
 		if item.NonWalkable || item.OnGet == nil {
+			t.Logger.Debugf("getnext: oid=%v. skip for non walkable", item.OID)
 			continue // skip non-walkable items
 		}
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
@@ -198,6 +199,7 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 			ret.Error = snmperr
 			ret.ErrorIndex = uint8(iid)
 		}
+		t.Logger.Debugf("getnext: append oid=%v. result=%v err=%v", item.OID, ctl, snmperr)
 		ret.Variables = append(ret.Variables, ctl)
 	}
 
@@ -209,6 +211,7 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	ret.PDUType = gosnmp.GetResponse
+	ret.Variables = []gosnmp.SnmpPDU{}
 	for id, varItem := range i.Variables {
 		item, _ := t.getForPDUValueControl(varItem.Name)
 		if item == nil {

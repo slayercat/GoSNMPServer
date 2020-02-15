@@ -68,6 +68,16 @@ func (suite *SnmpServerTestSuite) getUDPPortListened() *net.UDPAddr {
 	}
 }
 
+func (suite *SnmpServerTestSuite) TestSNMPv1UDPSnmpWalk() {
+	result, err := exec.Command("snmpwalk", "-v1", "-c", "public",
+		suite.getUDPPortListened().String(), "1").Output()
+	if err != nil {
+		suite.T().Errorf("cmd meet error: %+v", err)
+	}
+	lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+	assert.Equal(suite.T(), len(suite.master.SubAgents[0].OIDs)+1, len(lines))
+}
+
 func (suite *SnmpServerTestSuite) TestSNMPv2UDPSnmpWalk() {
 	result, err := exec.Command("snmpwalk", "-v2c", "-c", "public",
 		suite.getUDPPortListened().String(), "1").Output()
@@ -88,6 +98,25 @@ func (suite *SnmpServerTestSuite) TestSNMPv3PrivUDPSnmpWalk() {
 	}
 	lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
 	assert.Equal(suite.T(), len(suite.master.SubAgents[0].OIDs)+1, len(lines))
+}
+
+func (suite *SnmpServerTestSuite) TestBadSnmpV2Set() {
+	// Shell Fails
+	result, err := exec.Command("snmpset", "-v2c", "-c", "public",
+		suite.getUDPPortListened().String(), "1.3.6.1.2.1.1.3.0", "INTEGER", "1").Output()
+	assert.IsType(suite.T(), err, &exec.ExitError{})
+	assert.NotEqual(suite.T(), 0, err.(*exec.ExitError).ExitCode())
+	lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+	assert.Equal(suite.T(), 1, len(lines))
+}
+
+func (suite *SnmpServerTestSuite) TestBadCommunitySNMPv2UDPSnmpWalk() {
+	result, err := exec.Command("snmpwalk", "-v2c", "-c", "notPublic",
+		suite.getUDPPortListened().String(), "1").Output()
+	assert.IsType(suite.T(), err, &exec.ExitError{})
+	assert.NotEqual(suite.T(), 0, err.(*exec.ExitError).ExitCode())
+	lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+	assert.Equal(suite.T(), 1, len(lines))
 }
 
 func (suite *SnmpServerTestSuite) TearDownSuite() {

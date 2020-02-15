@@ -218,8 +218,6 @@ func (t *MasterAgent) fillErrorPkt(err error, io *gosnmp.SnmpPacket) error {
 	io.PDUType = gosnmp.GetResponse
 	if errors.Is(err, ErrNoSNMPInstance) {
 		io.Error = gosnmp.NoAccess
-	} else if errors.Is(err, ErrUnknownOID) {
-		io.Error = gosnmp.NoSuchName
 	} else if errors.Is(err, ErrUnsupportedOperation) {
 		io.Error = gosnmp.ReadOnly
 	} else if errors.Is(err, ErrNoPermission) {

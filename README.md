@@ -72,10 +72,8 @@ Append `GoSNMPServer.PDUValueControlItem` to your SubAgent OIDS:
     Document: "ifIndex",
 },
 ```
-Supports Types:
-- Boolean
+Supports Types:  See RFC-2578 FOR SMI
 - Integer
-- BitString
 - OctetString
 - ObjectIdentifier
 - IPAddress

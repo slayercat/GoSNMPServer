@@ -2,6 +2,7 @@ package GoSNMPServer
 
 import "net"
 import "github.com/slayercat/gosnmp"
+import "github.com/pkg/errors"
 
 // PermissionAllowance  ENUM controls for Allowance
 type PermissionAllowance int
@@ -50,9 +51,6 @@ type PDUValueControlItem struct {
 	Document string
 }
 
-func Asn1BooleanUnwrap(i interface{}) bool { return i.(bool) }
-func Asn1BooleanWrap(i bool) interface{}   { return i }
-
 func Asn1IntegerUnwrap(i interface{}) int { return i.(int) }
 func Asn1IntegerWrap(i int) interface{}   { return i }
 
@@ -65,8 +63,16 @@ func Asn1OctetStringWrap(i string) interface{}   { return i }
 func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
 
-func Asn1IPAddressUnwrap(i interface{}) net.IP { return i.(net.IP) }
-func Asn1IPAddressWrap(i net.IP) interface{}   { return i }
+func Asn1IPAddressUnwrap(i interface{}) net.IP {
+	ip := net.ParseIP(i.(string))
+	if ip == nil {
+		panic(errors.Errorf("not valid ip: %v", i))
+	}
+	return ip
+}
+func Asn1IPAddressWrap(i net.IP) interface{} {
+	return i
+}
 
 func Asn1Counter32Unwrap(i interface{}) uint { return i.(uint) }
 func Asn1Counter32Wrap(i uint) interface{}   { return i }
