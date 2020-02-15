@@ -1,5 +1,6 @@
 package GoSNMPServer
 
+import "net"
 import "github.com/pkg/errors"
 import "reflect"
 
@@ -31,6 +32,17 @@ func (server *SNMPServer) ListenUDP(l3proto, address string) error {
 	i.SetupLogger(server.logger)
 	server.wconnStream = i
 	return nil
+}
+
+func (server *SNMPServer) Address() net.Addr {
+	return server.wconnStream.Address()
+}
+
+func (server *SNMPServer) Shutdown() {
+	server.logger.Infof("Shutdown server")
+	if server.wconnStream != nil {
+		server.wconnStream.Shutdown()
+	}
 }
 
 func (server *SNMPServer) ServeForever() error {

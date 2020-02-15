@@ -36,6 +36,8 @@ github.com/slayercat/gosnmp v1.22.1-0.20200211020331-08697761cf44 h1:glM1X/lOTZG
 github.com/slayercat/gosnmp v1.22.1-0.20200211020331-08697761cf44/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
 github.com/slayercat/gosnmp v1.22.1-0.20200211083801-270fe93c7ff1 h1:lIdeaZND6F76xLZBYdHdJckN8k1HbCQsrui0nx4YgdM=
 github.com/slayercat/gosnmp v1.22.1-0.20200211083801-270fe93c7ff1/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
+github.com/slayercat/gosnmp v1.22.1-0.20200214025229-ec5f3bff9558 h1:u2Rq2kQjwokiJG2rRvD0grkLS6tsnBUymoffgFJRRLo=
+github.com/slayercat/gosnmp v1.22.1-0.20200214025229-ec5f3bff9558/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
 github.com/soniah/gosnmp v1.22.0 h1:jVJi8+OGvR+JHIaZKMmnyNP0akJd2vEgNatybwhZvxg=
 github.com/soniah/gosnmp v1.22.0/go.mod h1:DuEpAS0az51+DyVBQwITDsoq4++e3LTNckp2GoasF2I=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

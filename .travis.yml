@@ -12,6 +12,8 @@ env:
 
 before_install:
  - export GOARCH=$TRAVIS_GOARCH
+ - sudo apt-get -y install snmp
+ - export CODECOV_TOKEN="81d96f00-26df-40dd-8286-58b96fd92963"
 
 install:
  - go get -u github.com/slayercat/gosnmp
@@ -20,5 +22,8 @@ install:
 
 script:
  - go build .
- - go test -v .
+ - go test -v ./... -coverprofile=coverage.txt -covermode=atomic
  - go build github.com/slayercat/GoSNMPServer/cmd/gosnmpserver
+
+after_success:
+ - bash <(curl -s https://codecov.io/bash)
