@@ -71,7 +71,7 @@ func (server *SNMPServer) ServeNextRequest() (err error) {
 			return
 		}
 	}()
-	bytePDU, replayer, err := server.wconnStream.NextSnmp()
+	bytePDU, replyer, err := server.wconnStream.NextSnmp()
 	if err != nil {
 		return err
 	}
@@ -84,14 +84,14 @@ func (server *SNMPServer) ServeNextRequest() (err error) {
 		server.logger.Warnf("ResponseForBuffer Error: %v. %s result", err, v)
 	}
 	if len(result) != 0 {
-		if errreplay := replayer.ReplayPDU(result); errreplay != nil {
-			server.logger.Errorf("Replay PDU meet err:", errreplay)
-			replayer.Shutdown()
+		if errreply := replyer.ReplyPDU(result); errreply != nil {
+			server.logger.Errorf("Reply PDU meet err:", errreply)
+			replyer.Shutdown()
 			return nil
 		}
 	}
 	if err != nil {
-		replayer.Shutdown()
+		replyer.Shutdown()
 	}
 	return nil
 }

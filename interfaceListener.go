@@ -6,12 +6,12 @@ import "github.com/pkg/errors"
 type ISnmpServerListener interface {
 	SetupLogger(ILogger)
 	Address() net.Addr
-	NextSnmp() (snmpbytes []byte, replayer IReplayer, err error)
+	NextSnmp() (snmpbytes []byte, replyer IReplyer, err error)
 	Shutdown()
 }
 
-type IReplayer interface {
-	ReplayPDU([]byte) error
+type IReplyer interface {
+	ReplyPDU([]byte) error
 	Shutdown()
 }
 
@@ -42,7 +42,7 @@ func (udp *UDPListener) Address() net.Addr {
 	return udp.conn.LocalAddr()
 }
 
-func (udp *UDPListener) NextSnmp() ([]byte, IReplayer, error) {
+func (udp *UDPListener) NextSnmp() ([]byte, IReplyer, error) {
 	var msg [4096]byte
 	if udp.conn == nil {
 		return nil, nil, errors.New("Connection Not Listen")
@@ -52,7 +52,7 @@ func (udp *UDPListener) NextSnmp() ([]byte, IReplayer, error) {
 		return nil, nil, errors.Wrap(err, "UDP Read Error")
 	}
 	udp.logger.Infof("udp request from %v. size=%v", udpAddr, counts)
-	return msg[:counts], &UDPReplayer{udpAddr, udp.conn}, nil
+	return msg[:counts], &UDPReplyer{udpAddr, udp.conn}, nil
 }
 
 func (udp *UDPListener) Shutdown() {
@@ -62,12 +62,12 @@ func (udp *UDPListener) Shutdown() {
 	}
 }
 
-type UDPReplayer struct {
+type UDPReplyer struct {
 	target *net.UDPAddr
 	conn   *net.UDPConn
 }
 
-func (r *UDPReplayer) ReplayPDU(i []byte) error {
+func (r *UDPReplyer) ReplyPDU(i []byte) error {
 	conn := r.conn
 	_, err := conn.WriteToUDP(i, r.target)
 	if err != nil {
@@ -76,4 +76,4 @@ func (r *UDPReplayer) ReplayPDU(i []byte) error {
 	return nil
 }
 
-func (r *UDPReplayer) Shutdown() {}
+func (r *UDPReplyer) Shutdown() {}
