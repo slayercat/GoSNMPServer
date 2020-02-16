@@ -39,9 +39,9 @@ func (t *SubAgent) SyncConfig() error {
 
 func (t *SubAgent) Serve(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	switch i.PDUType {
-	case gosnmp.GetRequest, gosnmp.GetBulkRequest:
+	case gosnmp.GetRequest:
 		return t.serveGetRequest(i)
-	case gosnmp.GetNextRequest:
+	case gosnmp.GetNextRequest, gosnmp.GetBulkRequest:
 		return t.serveGetNextRequest(i)
 	case gosnmp.SetRequest:
 		return t.serveSetRequest(i)
@@ -201,7 +201,9 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 		ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
 		return &ret, nil
 	}
-
+	if i.MaxRepetitions != 0 {
+		length = int(i.MaxRepetitions)
+	}
 	if length+id > len(t.OIDs) {
 		length = len(t.OIDs) - id
 	}

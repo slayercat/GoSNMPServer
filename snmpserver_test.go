@@ -418,14 +418,14 @@ func (suite *ServerTests) TestGetSetOids() {
 	})
 
 	suite.Run("SNMPBulkGet", func() {
-		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", serverAddress.String(),
-			"1.2.3.1", "1.2.3.2", "1.2.3.3")
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", serverAddress.String(),
+			"1")
 		if err != nil {
 			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
 				err, string(err.(*exec.ExitError).Stderr), string(result))
 		}
 		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
-		assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1, len(lines), "data snmpwalk gets: \n%v", string(result))
 	})
 	shandle.Shutdown()
 	<-stopWaitChain
