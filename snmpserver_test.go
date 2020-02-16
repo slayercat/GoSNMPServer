@@ -49,6 +49,52 @@ func (suite *ServerTests) TestNewDiscardLoggerReadyForWork() {
 	assert.IsType(suite.T(), master.Logger, &DiscardLogger{})
 }
 
+func (suite *ServerTests) TestTraps() {
+	var trapDataReceived gosnmp.SnmpPDU
+	_ = trapDataReceived
+	master := MasterAgent{
+		Logger: suite.Logger,
+		SecurityConfig: SecurityConfig{
+			AuthoritativeEngineBoots: 1,
+			Users:                    []gosnmp.UsmSecurityParameters{},
+		},
+		SubAgents: []*SubAgent{
+			{
+				CommunityIDs: []string{"public"},
+				OIDs: []*PDUValueControlItem{
+
+					{
+						OID:  "1.2.4.1",
+						Type: gosnmp.OctetString,
+						OnTrap: func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret *gosnmp.SnmpPDU, err error) {
+							trapDataReceived = trapdata
+							dataret = &gosnmp.SnmpPDU{}
+							err = nil
+							return
+						},
+						Document: "Trap",
+					},
+				},
+			},
+		},
+	}
+	shandle := NewSNMPServer(master)
+	shandle.ListenUDP("udp4", ":0")
+	var stopWaitChain = make(chan int)
+	go func() {
+		err := shandle.ServeForever()
+		if err != nil {
+			suite.Logger.Errorf("error in ServeForever: %v", err)
+		} else {
+			suite.Logger.Info("ServeForever Stoped.")
+		}
+		stopWaitChain <- 1
+
+	}()
+	serverAddress := shandle.Address().(*net.UDPAddr)
+	_ = serverAddress
+}
+
 func (suite *ServerTests) TestErrors() {
 	getedPriv := false
 	master := MasterAgent{

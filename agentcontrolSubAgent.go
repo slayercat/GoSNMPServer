@@ -45,6 +45,8 @@ func (t *SubAgent) Serve(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 		return t.serveGetNextRequest(i)
 	case gosnmp.SetRequest:
 		return t.serveSetRequest(i)
+	case gosnmp.Trap, gosnmp.SNMPv2Trap, gosnmp.InformRequest:
+		return t.serveTrap(i)
 	default:
 		return nil, errors.WithStack(ErrUnsupportedOperation)
 	}
@@ -143,6 +145,45 @@ func (t *SubAgent) getForPDUValueControlResult(item *PDUValueControlItem,
 	}, gosnmp.NoError
 }
 
+func (t *SubAgent) trapForPDUValueControlResult(item *PDUValueControlItem,
+	i *gosnmp.SnmpPacket, varItem gosnmp.SnmpPDU) (pdu gosnmp.SnmpPDU, errret gosnmp.SNMPError) {
+	if t.checkPermission(item, i) != PermissionAllowanceAllowed {
+		return t.getPDUNil(item.OID), gosnmp.NoAccess
+	}
+	if item.OnTrap == nil {
+		return t.getPDUNil(item.OID), gosnmp.ResourceUnavailable
+	}
+	defer func() {
+		// panic in onset
+		if err := recover(); err != nil {
+			pdu = t.getPDUOctetString(item.OID, fmt.Sprintf("ERROR: %+v", err))
+			if t.UserErrorMarkPacket {
+				errret = gosnmp.GenErr
+			}
+			return
+		}
+	}()
+	isInform := false
+	if i.PDUType == gosnmp.InformRequest {
+		isInform = true
+	}
+	valtoRet, err := item.OnTrap(isInform, varItem)
+	if err != nil {
+		if t.UserErrorMarkPacket {
+			errret = gosnmp.GenErr
+		} else {
+			errret = gosnmp.NoError
+		}
+		return t.getPDUOctetString(item.OID, fmt.Sprintf("ERROR: %+v", err)), errret
+	}
+	return gosnmp.SnmpPDU{
+		Name:   item.OID,
+		Type:   item.Type,
+		Value:  valtoRet,
+		Logger: &SnmpLoggerAdapter{t.Logger},
+	}, gosnmp.NoError
+}
+
 func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	t.Logger.Debugf("before copy: %v...After copy:%v",
@@ -179,6 +220,41 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	}
 
 	return &ret, nil
+
+}
+
+func (t *SubAgent) serveTrap(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
+	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
+	t.Logger.Debugf("before copy: %v...After copy:%v",
+		i.SecurityParameters.(*gosnmp.UsmSecurityParameters),
+		ret.SecurityParameters.(*gosnmp.UsmSecurityParameters))
+
+	ret.PDUType = gosnmp.GetResponse
+	ret.Variables = []gosnmp.SnmpPDU{}
+	t.Logger.Debugf("i.Version == %v len(i.Variables) = %v.", i.Version, len(i.Variables))
+	for id, varItem := range i.Variables {
+		item, _ := t.getForPDUValueControl(varItem.Name)
+		if item == nil {
+			if ret.Error == gosnmp.NoError {
+				ret.Error = gosnmp.NoSuchName
+				ret.ErrorIndex = uint8(id)
+			}
+			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
+			continue
+		}
+
+		ctl, snmperr := t.trapForPDUValueControlResult(item, i, varItem)
+		if snmperr != gosnmp.NoError && ret.Error == gosnmp.NoError {
+			ret.Error = snmperr
+			ret.ErrorIndex = uint8(id)
+		}
+		ret.Variables = append(ret.Variables, ctl)
+	}
+	if i.PDUType == gosnmp.InformRequest {
+		return &ret, nil
+	} else {
+		return nil, nil
+	}
 
 }
 
