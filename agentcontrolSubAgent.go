@@ -39,7 +39,7 @@ func (t *SubAgent) SyncConfig() error {
 
 func (t *SubAgent) Serve(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	switch i.PDUType {
-	case gosnmp.GetRequest:
+	case gosnmp.GetRequest, gosnmp.GetBulkRequest:
 		return t.serveGetRequest(i)
 	case gosnmp.GetNextRequest:
 		return t.serveGetNextRequest(i)
@@ -171,7 +171,6 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		}
 
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
-		t.Logger.Errorf("?? getForPDUValueControlResult =%v. err=%v", ctl, snmperr)
 		if snmperr != gosnmp.NoError && ret.Error == gosnmp.NoError {
 			ret.Error = snmperr
 			ret.ErrorIndex = uint8(id)

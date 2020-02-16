@@ -176,6 +176,9 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 
 func (t *MasterAgent) marshalPkt(pkt *gosnmp.SnmpPacket, err error) ([]byte, error) {
 	// when err. marshal error pkt
+	if pkt == nil {
+		pkt = &gosnmp.SnmpPacket{}
+	}
 	if err != nil {
 		t.Logger.Debugf("Will marshal: %v", err)
 
@@ -219,7 +222,7 @@ func (t *MasterAgent) fillErrorPkt(err error, io *gosnmp.SnmpPacket) error {
 	if errors.Is(err, ErrNoSNMPInstance) {
 		io.Error = gosnmp.NoAccess
 	} else if errors.Is(err, ErrUnsupportedOperation) {
-		io.Error = gosnmp.ReadOnly
+		io.Error = gosnmp.ResourceUnavailable
 	} else if errors.Is(err, ErrNoPermission) {
 		io.Error = gosnmp.AuthorizationError
 	} else if errors.Is(err, ErrUnsupportedPacketData) {

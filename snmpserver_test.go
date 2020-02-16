@@ -141,7 +141,7 @@ func (suite *ServerTests) TestErrors() {
 		},
 	}
 	shandle := NewSNMPServer(master)
-	shandle.ListenUDP("udp4", "127.0.0.1:1161")
+	shandle.ListenUDP("udp4", ":0")
 	var stopWaitChain = make(chan int)
 	go func() {
 		err := shandle.ServeForever()
@@ -415,6 +415,17 @@ func (suite *ServerTests) TestGetSetOids() {
 			})
 		})
 
+	})
+
+	suite.Run("SNMPBulkGet", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", serverAddress.String(),
+			"1.2.3.1", "1.2.3.2", "1.2.3.3")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
 	})
 	shandle.Shutdown()
 	<-stopWaitChain
