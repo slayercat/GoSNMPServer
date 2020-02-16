@@ -54,9 +54,6 @@ type PDUValueControlItem struct {
 func Asn1IntegerUnwrap(i interface{}) int { return i.(int) }
 func Asn1IntegerWrap(i int) interface{}   { return i }
 
-func Asn1BitStringUnwrap(i interface{}) string { return i.(string) }
-func Asn1BitStringWrap(i string) interface{}   { return i }
-
 func Asn1OctetStringUnwrap(i interface{}) string { return i.(string) }
 func Asn1OctetStringWrap(i string) interface{}   { return i }
 
@@ -64,7 +61,7 @@ func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
 
 func Asn1IPAddressUnwrap(i interface{}) net.IP {
-	ip := i.(net.IP)
+	ip := net.ParseIP(i.(string))
 	if ip == nil {
 		panic(errors.Errorf("not valid ip: %v", i))
 	}

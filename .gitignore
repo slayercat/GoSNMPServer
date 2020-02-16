@@ -68,9 +68,11 @@ tags
 # test coverage outputs
 coverage.json
 gosnmp.html
+coverage.txt
+tCoverage.html
 
 # profiling outputs
 cpu.out
 mem.out
 gosnmp.test
-
+gosnmpserver

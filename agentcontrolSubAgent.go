@@ -3,7 +3,6 @@ package GoSNMPServer
 import "strings"
 import "fmt"
 import "sort"
-
 import "github.com/slayercat/gosnmp"
 import "github.com/pkg/errors"
 
@@ -238,18 +237,31 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			ret.Variables = append(ret.Variables, t.getPDUNil(varItem.Name))
 			continue
 		}
-
-		if err := item.OnSet(varItem.Value); err != nil {
-			if ret.Error == gosnmp.NoError {
-				ret.Error = gosnmp.GenErr
-				ret.ErrorIndex = uint8(id)
+		func() {
+			defer func() {
+				// panic in onset
+				if err := recover(); err != nil {
+					if ret.Error == gosnmp.NoError {
+						ret.Error = gosnmp.GenErr
+						ret.ErrorIndex = uint8(id)
+					}
+					ret.Variables = append(ret.Variables,
+						t.getPDUOctetString(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
+				}
+			}()
+			if err := item.OnSet(varItem.Value); err != nil {
+				if ret.Error == gosnmp.NoError {
+					ret.Error = gosnmp.GenErr
+					ret.ErrorIndex = uint8(id)
+				}
+				ret.Variables = append(ret.Variables,
+					t.getPDUOctetString(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
+				return
+			} else {
+				ret.Variables = append(ret.Variables, varItem)
 			}
-			ret.Variables = append(ret.Variables,
-				t.getPDUOctetString(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
-			continue
-		} else {
-			ret.Variables = append(ret.Variables, varItem)
-		}
+		}()
+
 	}
 	return &ret, nil
 }
