@@ -64,7 +64,7 @@ func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
 
 func Asn1IPAddressUnwrap(i interface{}) net.IP {
-	ip := net.ParseIP(i.(string))
+	ip := i.(net.IP)
 	if ip == nil {
 		panic(errors.Errorf("not valid ip: %v", i))
 	}

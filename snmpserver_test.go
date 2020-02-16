@@ -104,6 +104,33 @@ func (suite *ServerTests) TestGetSetOids() {
 		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
 		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1, len(lines), "data snmpwalk gets: \n%v", string(result))
 	})
+	suite.Run("SNMPSet", func() {
+		suite.Run("Integer", func() {
+			result, err := exec.Command("snmpset", "-v2c", "-c", "public", serverAddress.String(),
+				"1.2.3.1", "i", "123").Output()
+			if err != nil {
+				suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+					err, string(err.(*exec.ExitError).Stderr), string(result))
+			}
+		})
+		suite.Run("OctetString", func() {
+			result, err := exec.Command("snmpset", "-v2c", "-c", "public", serverAddress.String(),
+				"1.2.3.3", "s", "OctetString").Output()
+			if err != nil {
+				suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+					err, string(err.(*exec.ExitError).Stderr), string(result))
+			}
+		})
+		suite.Run("ObjectIdentifier", func() {
+			result, err := exec.Command("snmpset", "-v2c", "-c", "public", serverAddress.String(),
+				"1.2.3.4", "o", "1.2.3.4.5").Output()
+			if err != nil {
+				suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+					err, string(err.(*exec.ExitError).Stderr), string(result))
+			}
+		})
+
+	})
 	shandle.Shutdown()
 	<-stopWaitChain
 }
@@ -123,6 +150,17 @@ func (suite *ServerTests) getTestGetSetOIDS() []*PDUValueControlItem {
 				return nil
 			},
 			Document: "TestTypeInteger",
+		},
+		{
+			OID:  "1.2.3.2",
+			Type: gosnmp.Null,
+			OnGet: func() (value interface{}, err error) {
+				return nil, nil
+			},
+			OnSet: func(value interface{}) (err error) {
+				return nil
+			},
+			Document: "TestTypeNULL",
 		},
 		{
 			OID:  "1.2.3.3",
@@ -148,7 +186,9 @@ func (suite *ServerTests) getTestGetSetOIDS() []*PDUValueControlItem {
 				return Asn1ObjectIdentifierWrap(target), nil
 			},
 			OnSet: func(value interface{}) (err error) {
-				val := Asn1ObjectIdentifierUnwrap(baseTestSuite.privGetSetOIDS.val_ObjectIdentifier)
+				suite.Logger.Info("set ObjectIdentifier. value=", value)
+				val := Asn1ObjectIdentifierUnwrap(value)
+				suite.Logger.Infof("after Asn1ObjectIdentifierUnwrap %v->%v", value, val)
 				if !IsValidObjectIdentifier(val) {
 					return errors.New("not a valid oid")
 				}

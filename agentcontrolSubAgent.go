@@ -247,6 +247,8 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			ret.Variables = append(ret.Variables,
 				t.getPDUOctetString(varItem.Name, fmt.Sprintf("ERROR: %+v", err)))
 			continue
+		} else {
+			ret.Variables = append(ret.Variables, varItem)
 		}
 	}
 	return &ret, nil
