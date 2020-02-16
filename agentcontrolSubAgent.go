@@ -15,6 +15,9 @@ type SubAgent struct {
 	// OIDs for Read/Write actions
 	OIDs []*PDUValueControlItem
 
+	// UserErrorMarkPacket decides if shll treat user returned error as generr
+	UserErrorMarkPacket bool
+
 	Logger ILogger
 
 	master *MasterAgent
@@ -106,16 +109,31 @@ func (t *SubAgent) getPDUOctetString(Name, str string) gosnmp.SnmpPDU {
 }
 
 func (t *SubAgent) getForPDUValueControlResult(item *PDUValueControlItem,
-	i *gosnmp.SnmpPacket) (gosnmp.SnmpPDU, gosnmp.SNMPError) {
+	i *gosnmp.SnmpPacket) (pdu gosnmp.SnmpPDU, errret gosnmp.SNMPError) {
 	if t.checkPermission(item, i) != PermissionAllowanceAllowed {
 		return t.getPDUNil(item.OID), gosnmp.NoAccess
 	}
 	if item.OnGet == nil {
 		return t.getPDUNil(item.OID), gosnmp.ResourceUnavailable
 	}
+	defer func() {
+		// panic in onset
+		if err := recover(); err != nil {
+			pdu = t.getPDUOctetString(item.OID, fmt.Sprintf("ERROR: %+v", err))
+			if t.UserErrorMarkPacket {
+				errret = gosnmp.GenErr
+			}
+			return
+		}
+	}()
 	valtoRet, err := item.OnGet()
 	if err != nil {
-		return t.getPDUOctetString(item.OID, fmt.Sprintf("ERROR: %+v", err)), gosnmp.GenErr
+		if t.UserErrorMarkPacket {
+			errret = gosnmp.GenErr
+		} else {
+			errret = gosnmp.NoError
+		}
+		return t.getPDUOctetString(item.OID, fmt.Sprintf("ERROR: %+v", err)), errret
 	}
 	return gosnmp.SnmpPDU{
 		Name:   item.OID,
@@ -153,7 +171,8 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		}
 
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
-		if snmperr != gosnmp.NoError && ret.Error != gosnmp.NoError {
+		t.Logger.Errorf("?? getForPDUValueControlResult =%v. err=%v", ctl, snmperr)
+		if snmperr != gosnmp.NoError && ret.Error == gosnmp.NoError {
 			ret.Error = snmperr
 			ret.ErrorIndex = uint8(id)
 		}
@@ -188,18 +207,34 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 		length = len(t.OIDs) - id
 	}
 	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v. len(t.OIDs)=%v", id, length, len(t.OIDs))
-	for iid, item := range t.OIDs[id : id+length] {
+	iid := id
+	for {
+		if iid >= len(t.OIDs) {
+			break
+		}
+		item := t.OIDs[iid]
+		if len(ret.Variables) >= length {
+			break
+		}
+
 		if item.NonWalkable || item.OnGet == nil {
 			t.Logger.Debugf("getnext: oid=%v. skip for non walkable", item.OID)
+			iid += 1
 			continue // skip non-walkable items
 		}
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
-		if snmperr != gosnmp.NoError && ret.Error != gosnmp.NoError {
+		if snmperr != gosnmp.NoError && ret.Error == gosnmp.NoError {
 			ret.Error = snmperr
 			ret.ErrorIndex = uint8(iid)
 		}
 		t.Logger.Debugf("getnext: append oid=%v. result=%v err=%v", item.OID, ctl, snmperr)
 		ret.Variables = append(ret.Variables, ctl)
+		iid += 1
+	}
+
+	if len(ret.Variables) == 0 {
+		// NOT find for the last
+		ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
 	}
 
 	return &ret, nil
@@ -241,7 +276,7 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			defer func() {
 				// panic in onset
 				if err := recover(); err != nil {
-					if ret.Error == gosnmp.NoError {
+					if t.UserErrorMarkPacket && ret.Error == gosnmp.NoError {
 						ret.Error = gosnmp.GenErr
 						ret.ErrorIndex = uint8(id)
 					}
@@ -250,7 +285,7 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 				}
 			}()
 			if err := item.OnSet(varItem.Value); err != nil {
-				if ret.Error == gosnmp.NoError {
+				if t.UserErrorMarkPacket && ret.Error == gosnmp.NoError {
 					ret.Error = gosnmp.GenErr
 					ret.ErrorIndex = uint8(id)
 				}
