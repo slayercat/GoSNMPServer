@@ -44,6 +44,8 @@ github.com/slayercat/gosnmp v1.22.1-0.20200215160332-f6345aa5644e h1:HIzgjwZ6xRh
 github.com/slayercat/gosnmp v1.22.1-0.20200215160332-f6345aa5644e/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
 github.com/slayercat/gosnmp v1.22.1-0.20200216021251-29cae7052339 h1:nX2Q4H0fbNJnQXcpt9L7aN8Z1FU7gDNF4zjgKrMXgaI=
 github.com/slayercat/gosnmp v1.22.1-0.20200216021251-29cae7052339/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
+github.com/slayercat/gosnmp v1.22.1-0.20200216031804-670503dd47da h1:9MWCKnSjrQmUmh8A+A6DCZRKTca/lpr+Z8MG3P7ngBQ=
+github.com/slayercat/gosnmp v1.22.1-0.20200216031804-670503dd47da/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
 github.com/soniah/gosnmp v1.22.0 h1:jVJi8+OGvR+JHIaZKMmnyNP0akJd2vEgNatybwhZvxg=
 github.com/soniah/gosnmp v1.22.0/go.mod h1:DuEpAS0az51+DyVBQwITDsoq4++e3LTNckp2GoasF2I=
 github.com/soniah/gosnmp v1.23.0/go.mod h1:DuEpAS0az51+DyVBQwITDsoq4++e3LTNckp2GoasF2I=
