@@ -22,12 +22,12 @@ func DismanEventOids() []*GoSNMPServer.PDUValueControlItem {
 	return []*GoSNMPServer.PDUValueControlItem{
 		{
 			OID:  "1.3.6.1.2.1.1.3.0",
-			Type: gosnmp.Integer,
+			Type: gosnmp.TimeTicks,
 			OnGet: func() (value interface{}, err error) {
 				if val, err := host.Uptime(); err != nil {
 					return nil, err
 				} else {
-					return GoSNMPServer.Asn1IntegerWrap(int(val)), nil
+					return GoSNMPServer.Asn1TimeTicksWrap(uint32(val)), nil
 				}
 			},
 			Document: "Uptime",

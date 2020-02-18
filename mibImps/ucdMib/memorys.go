@@ -11,7 +11,7 @@ func MemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
 		{
 			OID:      "1.3.6.1.4.1.2021.4.1",
 			Type:     gosnmp.Integer,
-			OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1IntegerWrap(0), nil },
+			OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1IntegerWrap(1), nil },
 			Document: "memIndex",
 		},
 		{
