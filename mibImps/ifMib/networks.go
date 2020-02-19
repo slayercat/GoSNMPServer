@@ -16,13 +16,22 @@ func NetworkOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{}
 	valInterfaces, err := net.Interfaces()
 	if err != nil {
-		g_Logger.Errorf("network oids read failed. err=%v", err)
+		g_Logger.Errorf("network ifs read failed. err=%v", err)
 		return toRet
 	}
+	netifs := make(map[string]net.InterfaceStat)
 	for _, val := range valInterfaces {
-		ifIndex := val.Index
+		netifs[val.Name] = val
+	}
+	vcounters, err := net.IOCounters(true)
+	if err != nil {
+		g_Logger.Errorf("network IOCounters read failed. err=%v", err)
+		return toRet
+	}
+	for ifIndex, val := range vcounters {
+		targetIf := netifs[val.Name]
 		ifName := val.Name
-		ifHWAddr := val.HardwareAddr
+		ifHWAddr := targetIf.HardwareAddr
 		currentIf := []*GoSNMPServer.PDUValueControlItem{
 			{
 				OID:      fmt.Sprintf("1.3.6.1.2.1.2.2.1.1.%d", ifIndex),
