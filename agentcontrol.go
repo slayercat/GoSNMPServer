@@ -119,7 +119,7 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 	vhandle.Logger = &SnmpLoggerAdapter{t.Logger}
 	mb, _ := t.getUsmSecurityParametersFromUser("")
 	vhandle.SecurityParameters = mb
-	request, err := vhandle.SnmpDecodePacket(i)
+	request, decodeError := vhandle.SnmpDecodePacket(i)
 
 	switch request.Version {
 	case gosnmp.Version1, gosnmp.Version2c:
@@ -127,7 +127,7 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		//
 	case gosnmp.Version3:
 		// check for initial - discover response / non Privacy Items
-		if err == nil {
+		if decodeError == nil && len(request.Variables) == 0 {
 			val, err := t.ResponseForPkt(request)
 
 			if val == nil {
@@ -137,27 +137,30 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 			}
 		}
 		//v3 might want for Privacy
-		t.Logger.Debugf("v3 decode [will fail with non password] meet %v", err)
 		if request.SecurityParameters == nil {
-			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
+			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", decodeError)
 		}
 		username := t.getUserNameFromRequest(request)
 		usm, err := t.getUsmSecurityParametersFromUser(username)
 		if err != nil {
 			return nil, err
 		}
-		vhandle.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 usm.UserName,
-			AuthenticationProtocol:   usm.AuthenticationProtocol,
-			PrivacyProtocol:          usm.PrivacyProtocol,
-			AuthenticationPassphrase: usm.AuthenticationPassphrase,
-			PrivacyPassphrase:        usm.PrivacyPassphrase,
-			Logger:                   vhandle.Logger,
+		if decodeError != nil {
+			t.Logger.Debugf("v3 decode [will fail with non password] meet %v", err)
+			vhandle.SecurityParameters = &gosnmp.UsmSecurityParameters{
+				UserName:                 usm.UserName,
+				AuthenticationProtocol:   usm.AuthenticationProtocol,
+				PrivacyProtocol:          usm.PrivacyProtocol,
+				AuthenticationPassphrase: usm.AuthenticationPassphrase,
+				PrivacyPassphrase:        usm.PrivacyPassphrase,
+				Logger:                   vhandle.Logger,
+			}
+			request, err = vhandle.SnmpDecodePacket(i)
+			if err != nil {
+				return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
+			}
 		}
-		request, err := vhandle.SnmpDecodePacket(i)
-		if err != nil {
-			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
-		}
+
 		val, err := t.ResponseForPkt(request)
 		if val == nil {
 			request.SecurityParameters = vhandle.SecurityParameters

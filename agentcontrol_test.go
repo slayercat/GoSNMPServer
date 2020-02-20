@@ -260,7 +260,7 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3NotEncrypted() {
 	assert.NotEqual(suite.T(), nil, response.SecurityParameters)
 	assert.NotEqual(suite.T(), "", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineID)
 	assert.Equal(suite.T(), "testuser", response.SecurityParameters.(*gosnmp.UsmSecurityParameters).UserName)
-	assert.Equal(suite.T(), uint32(1), response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineBoots)
+	assert.Equal(suite.T(), uint32(123), response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineBoots)
 	assert.NotEqual(suite.T(), 0, response.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineTime)
 }
 

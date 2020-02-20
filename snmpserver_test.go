@@ -416,7 +416,6 @@ func (suite *ServerTests) TestGetSetOids() {
 		})
 
 	})
-
 	suite.Run("SNMPBulkGet", func() {
 		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", serverAddress.String(),
 			"1")
@@ -426,6 +425,13 @@ func (suite *ServerTests) TestGetSetOids() {
 		}
 		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
 		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1, len(lines), "data snmpwalk gets: \n%v", string(result))
+	})
+	suite.Run("SNMPWalk_UnknownUser", func() {
+		result, err := getCmdOutput("snmpwalk", "-v3", "-n", "public", "-u", "UnknownUser",
+			serverAddress.String(), "1")
+		if err == nil {
+			suite.T().Errorf("cmd not meet error! result=%v", result)
+		}
 	})
 	shandle.Shutdown()
 	<-stopWaitChain
