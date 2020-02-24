@@ -1,8 +1,11 @@
 package GoSNMPServer
 
-import "net"
-import "github.com/slayercat/gosnmp"
-import "github.com/pkg/errors"
+import (
+	"net"
+
+	"github.com/pkg/errors"
+	"github.com/slayercat/gosnmp"
+)
 
 // PermissionAllowance  ENUM controls for Allowance
 type PermissionAllowance int
@@ -68,8 +71,15 @@ type PDUValueControlItem struct {
 func Asn1IntegerUnwrap(i interface{}) int { return i.(int) }
 func Asn1IntegerWrap(i int) interface{}   { return i }
 
-func Asn1OctetStringUnwrap(i interface{}) string { return i.(string) }
-func Asn1OctetStringWrap(i string) interface{}   { return i }
+func Asn1OctetStringUnwrap(i interface{}) string {
+	switch i.(type) {
+	case string:
+		return i.(string)
+	default:
+		return string(i.([]uint8))
+	}
+}
+func Asn1OctetStringWrap(i string) interface{} { return i }
 
 func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
