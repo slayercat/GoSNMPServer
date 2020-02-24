@@ -1,8 +1,11 @@
 package GoSNMPServer
 
-import "net"
-import "github.com/slayercat/gosnmp"
-import "github.com/pkg/errors"
+import (
+	"net"
+
+	"github.com/pkg/errors"
+	"github.com/slayercat/gosnmp"
+)
 
 // PermissionAllowance  ENUM controls for Allowance
 type PermissionAllowance int
@@ -13,7 +16,20 @@ const PermissionAllowanceAllowed PermissionAllowance = 0
 // PermissionAllowanceDenied denies for access
 const PermissionAllowanceDenied PermissionAllowance = 1
 
+//FuncPDUControlCheckPermission checks for permission.
+//   return PermissionAllowanceAllowed / PermissionAllowanceDenied
 type FuncPDUControlCheckPermission func(pktVersion gosnmp.SnmpVersion, pduType gosnmp.PDUType, contextName string) PermissionAllowance
+
+//FuncPDUControlTrap will be called on trap.
+//    args:
+//		isInform: indicate if the request is a InformRequest.
+//          true  -- It's a InformRequest. data will be returns to the client
+//			false -- It's a trap.  data to returned will drop silencely.
+// 		trapdata: what client asks for.
+//    returns:
+//		dataret -- try to return to client. nil for nothing to return
+//		err  --  any error?(will return to client by string)
+type FuncPDUControlTrap func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error)
 
 // FuncPDUControlGet will be called on get value
 type FuncPDUControlGet func() (value interface{}, err error)
@@ -44,7 +60,8 @@ type PDUValueControlItem struct {
 	OnGet FuncPDUControlGet
 	// OnSet will be called on any Set option. set to nil for mark as a read-only item.
 	OnSet FuncPDUControlSet
-
+	// OnTrap will be called on TRAP.
+	OnTrap FuncPDUControlTrap
 	//////////// For human document
 
 	//Document for this PDU Item. ignored by the program.
@@ -54,8 +71,15 @@ type PDUValueControlItem struct {
 func Asn1IntegerUnwrap(i interface{}) int { return i.(int) }
 func Asn1IntegerWrap(i int) interface{}   { return i }
 
-func Asn1OctetStringUnwrap(i interface{}) string { return i.(string) }
-func Asn1OctetStringWrap(i string) interface{}   { return i }
+func Asn1OctetStringUnwrap(i interface{}) string {
+	switch i.(type) {
+	case string:
+		return i.(string)
+	default:
+		return string(i.([]uint8))
+	}
+}
+func Asn1OctetStringWrap(i string) interface{} { return i }
 
 func Asn1ObjectIdentifierUnwrap(i interface{}) string { return i.(string) }
 func Asn1ObjectIdentifierWrap(i string) interface{}   { return i }
