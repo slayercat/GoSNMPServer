@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/slayercat/gosnmp"
 	"github.com/stretchr/testify/assert"
@@ -105,6 +106,127 @@ func (suite *TrapTests) TestTraps() {
 		assert.Equal(suite.T(), "inform", data)
 		assert.Equal(suite.T(), "", string(result))
 	})
+	shandle.Shutdown()
+}
+
+func (suite *TrapTests) TestErrorTraps() {
+	var waiterReadyToWork = make(chan int, 1)
+	master := MasterAgent{
+		Logger: suite.Logger,
+		SecurityConfig: SecurityConfig{
+			AuthoritativeEngineBoots: 1,
+			Users:                    []gosnmp.UsmSecurityParameters{},
+		},
+		SubAgents: []*SubAgent{
+			{
+				CommunityIDs: []string{"public"},
+				OIDs: []*PDUValueControlItem{
+
+					{
+						OID:  "1.2.4.1",
+						Type: gosnmp.OctetString,
+						OnTrap: func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error) {
+							err = errors.New("OnTrap errors")
+							waiterReadyToWork <- 1
+							return
+						},
+						Document: "Trap",
+					},
+					{
+						OID:  "1.2.4.2",
+						Type: gosnmp.OctetString,
+						OnCheckPermission: func(pktVersion gosnmp.SnmpVersion, pduType gosnmp.PDUType, contextName string) PermissionAllowance {
+							waiterReadyToWork <- 2
+							return PermissionAllowanceDenied
+						},
+						OnTrap: func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error) {
+							return
+						},
+						Document: "Trap",
+					},
+					{
+						OID:  "1.2.4.3",
+						Type: gosnmp.OctetString,
+						OnTrap: func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error) {
+							waiterReadyToWork <- 3
+							panic("panic")
+						},
+						Document: "Trap",
+					},
+				},
+			},
+		},
+	}
+	shandle := NewSNMPServer(master)
+	shandle.ListenUDP("udp4", ":11611")
+	var stopWaitChain = make(chan int)
+	go func() {
+		err := shandle.ServeForever()
+		if err != nil {
+			suite.Logger.Errorf("error in ServeForever: %v", err)
+		} else {
+			suite.Logger.Info("ServeForever Stoped.")
+		}
+		stopWaitChain <- 1
+
+	}()
+	serverAddress := shandle.Address().(*net.UDPAddr)
+	suite.Run("TestFail", func() {
+		result, err := getCmdOutput("snmptrap", "-v2c", "-c", "public", serverAddress.String(),
+			"", "1.2.4.1", "1.2.4.1", "s", "1.2.3.13")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		rr := <-waiterReadyToWork
+		assert.Equal(suite.T(), 1, rr)
+	})
+	suite.Run("TestPermission", func() {
+
+		result, err := getCmdOutput("snmptrap", "-v2c", "-c", "public", serverAddress.String(),
+			"", "1.2.4.2", "1.2.4.2", "s", "1.2.3.13")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		rr := <-waiterReadyToWork
+		assert.Equal(suite.T(), 2, rr)
+	})
+	suite.Run("TestPanic", func() {
+		result, err := getCmdOutput("snmptrap", "-v2c", "-c", "public", serverAddress.String(),
+			"", "1.2.4.3", "1.2.4.3", "s", "1.2.3.13")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		rr := <-waiterReadyToWork
+		assert.Equal(suite.T(), 3, rr)
+	})
+	suite.Run("TestFail-UserErrorMarkPacket", func() {
+		master.SubAgents[0].UserErrorMarkPacket = true
+		result, err := getCmdOutput("snmptrap", "-v2c", "-c", "public", serverAddress.String(),
+			"", "1.2.4.2", "1.2.4.1", "s", "1.2.3.13")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		rr := <-waiterReadyToWork
+		assert.Equal(suite.T(), 1, rr)
+		master.SubAgents[0].UserErrorMarkPacket = false
+	})
+	suite.Run("TestPanic-UserErrorMarkPacket", func() {
+		master.SubAgents[0].UserErrorMarkPacket = true
+		result, err := getCmdOutput("snmptrap", "-v2c", "-c", "public", serverAddress.String(),
+			"", "1.2.4.3", "1.2.4.3", "s", "1.2.3.13")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		rr := <-waiterReadyToWork
+		assert.Equal(suite.T(), 3, rr)
+		master.SubAgents[0].UserErrorMarkPacket = false
+	})
+	shandle.Shutdown()
 }
 
 func TestTrapTestsSuite(t *testing.T) {
