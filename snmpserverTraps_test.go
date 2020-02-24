@@ -39,11 +39,15 @@ func (suite *TrapTests) TestTraps() {
 					{
 						OID:  "1.2.4.1",
 						Type: gosnmp.OctetString,
-						OnTrap: func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret *gosnmp.SnmpPDU, err error) {
+						OnTrap: func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error) {
 
 							trapDataReceived = trapdata
-							dataret = &gosnmp.SnmpPDU{}
+							dataret = nil
 							err = nil
+							if isInform {
+								//return something
+								dataret = Asn1OctetStringWrap("testInformReturn")
+							}
 							waiterReadyToWork <- 1
 							return
 						},
@@ -54,7 +58,7 @@ func (suite *TrapTests) TestTraps() {
 		},
 	}
 	shandle := NewSNMPServer(master)
-	shandle.ListenUDP("udp4", ":0")
+	shandle.ListenUDP("udp4", ":11611")
 	var stopWaitChain = make(chan int)
 	go func() {
 		err := shandle.ServeForever()
@@ -77,6 +81,29 @@ func (suite *TrapTests) TestTraps() {
 		_ = <-waiterReadyToWork
 		data := Asn1OctetStringUnwrap(trapDataReceived.Value)
 		assert.Equal(suite.T(), "1.2.3.13", data)
+	})
+	suite.Run("Trapv1OctetString", func() {
+		result, err := getCmdOutput("snmptrap", "-v", "1", "-c", "public", serverAddress.String(),
+			"", "", "6", "17", "", "1.2.4.1", "s", "v1Test")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		_ = <-waiterReadyToWork
+		data := Asn1OctetStringUnwrap(trapDataReceived.Value)
+		assert.Equal(suite.T(), "v1Test", data)
+	})
+	suite.Run("Inform", func() {
+		result, err := getCmdOutput("snmpinform", "-D", "ALL", "-LE", "d", "-v2c", "-c", "public", serverAddress.String(),
+			"", "1.2.4.1", "1.2.4.1", "s", "inform")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		_ = <-waiterReadyToWork
+		data := Asn1OctetStringUnwrap(trapDataReceived.Value)
+		assert.Equal(suite.T(), "inform", data)
+		assert.Equal(suite.T(), "", string(result))
 	})
 }
 

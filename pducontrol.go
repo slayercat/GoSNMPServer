@@ -29,7 +29,7 @@ type FuncPDUControlCheckPermission func(pktVersion gosnmp.SnmpVersion, pduType g
 //    returns:
 //		dataret -- try to return to client. nil for nothing to return
 //		err  --  any error?(will return to client by string)
-type FuncPDUControlTrap func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret *gosnmp.SnmpPDU, err error)
+type FuncPDUControlTrap func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error)
 
 // FuncPDUControlGet will be called on get value
 type FuncPDUControlGet func() (value interface{}, err error)
