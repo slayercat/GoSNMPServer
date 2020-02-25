@@ -2,6 +2,7 @@ package GoSNMPServer
 
 import (
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -53,14 +54,13 @@ func (v *SecurityConfig) FindForUser(name string) *gosnmp.UsmSecurityParameters 
 }
 
 type SNMPEngineID struct {
-	// TODO!
 	// See https://tools.ietf.org/html/rfc3411#section-5
 	// 			SnmpEngineID ::= TEXTUAL-CONVENTION
+	//      SYNTAX       OCTET STRING (SIZE(5..32))
 	EngineIDData string
 }
 
 func (t *SNMPEngineID) Marshal() []byte {
-	// XXX: STUB
 
 	// msgAuthoritativeEngineID: 80004fb8054445534b544f502d4a3732533245343ab63bc8
 	// 1... .... = Engine ID Conformance: RFC3411 (SNMPv3)
@@ -68,11 +68,15 @@ func (t *SNMPEngineID) Marshal() []byte {
 	// Engine ID Format: Octets, administratively assigned (5)
 	// Engine ID Data: 4445534b544f502d4a3732533245343ab63bc8
 
-	var tm []byte = []byte{
-		0x80, 0x00, 0x4f, 0xb8, 0x05, 0x44, 0x45, 0x53,
-		0x4b, 0x54, 0x4f, 0x50, 0x2d, 0x4a, 0x37, 0x32,
-		0x53, 0x32, 0x45, 0x34, 0x3a, 0xb6, 0x3b, 0xc8,
+	var tm = []byte{
+		0x80, 0x00, 0x4f, 0xb8, 0x05,
 	}
+	toAppend := []byte(t.EngineIDData)
+	maxDefineallowed := 32 - 5
+	if len(toAppend) > maxDefineallowed { //Max 32 bytes
+		toAppend = toAppend[:maxDefineallowed]
+	}
+	tm = append(tm, toAppend...)
 	return tm
 }
 
@@ -289,8 +293,10 @@ func (t *MasterAgent) findForSubAgent(community string) *SubAgent {
 
 func DefaultAuthoritativeEngineID() SNMPEngineID {
 	// XXX:TODO: return random
+	val, _ := host.Info()
+	data := strings.Replace(val.HostID, "-", "", -1)
 	return SNMPEngineID{
-		EngineIDData: "xxxx",
+		EngineIDData: data,
 	}
 }
 
