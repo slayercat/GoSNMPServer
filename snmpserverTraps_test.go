@@ -30,7 +30,15 @@ func (suite *TrapTests) TestTraps() {
 		Logger: suite.Logger,
 		SecurityConfig: SecurityConfig{
 			AuthoritativeEngineBoots: 1,
-			Users:                    []gosnmp.UsmSecurityParameters{},
+			Users: []gosnmp.UsmSecurityParameters{
+				{
+					UserName:                 "user",
+					AuthenticationProtocol:   gosnmp.SHA,
+					AuthenticationPassphrase: "password",
+					PrivacyProtocol:          gosnmp.AES,
+					PrivacyPassphrase:        "password",
+				},
+			},
 		},
 		SubAgents: []*SubAgent{
 			{
@@ -106,6 +114,22 @@ func (suite *TrapTests) TestTraps() {
 		assert.Equal(suite.T(), "inform", data)
 		assert.Equal(suite.T(), "", string(result))
 	})
+	suite.Run("Trapv3OctetString", func() {
+		result, err := getCmdOutput("snmptrap", "-v3", "-n", "public",
+			"-l", "authPriv", "-u", "user",
+			"-a", "SHA", "-A", "password",
+			"-x", "AES", "-X", "password",
+			serverAddress.String(),
+			"", "1.2.4.1", "1.2.4.1", "s", "1.2.3.13")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		_ = <-waiterReadyToWork
+		data := Asn1OctetStringUnwrap(trapDataReceived.Value)
+		assert.Equal(suite.T(), "1.2.3.13", data)
+	})
+
 	shandle.Shutdown()
 }
 
