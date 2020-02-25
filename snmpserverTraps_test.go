@@ -4,6 +4,7 @@ import (
 	"net"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -30,6 +31,7 @@ func (suite *TrapTests) TestTraps() {
 		Logger: suite.Logger,
 		SecurityConfig: SecurityConfig{
 			AuthoritativeEngineBoots: 1,
+			NoSecurity:               true,
 			Users: []gosnmp.UsmSecurityParameters{
 				{
 					UserName:                 "user",
@@ -67,7 +69,7 @@ func (suite *TrapTests) TestTraps() {
 		},
 	}
 	shandle := NewSNMPServer(master)
-	shandle.ListenUDP("udp4", ":11611")
+	shandle.ListenUDP("udp4", ":0")
 	var stopWaitChain = make(chan int)
 	go func() {
 		err := shandle.ServeForever()
@@ -115,7 +117,7 @@ func (suite *TrapTests) TestTraps() {
 		assert.Equal(suite.T(), "", string(result))
 	})
 	suite.Run("Trapv3OctetString", func() {
-		result, err := getCmdOutput("snmptrap", "-v3", "-n", "public",
+		result, err := getCmdOutput("snmpinform", "-v3", "-n", "public",
 			"-l", "authPriv", "-u", "user",
 			"-a", "SHA", "-A", "password",
 			"-x", "AES", "-X", "password",
@@ -129,7 +131,50 @@ func (suite *TrapTests) TestTraps() {
 		data := Asn1OctetStringUnwrap(trapDataReceived.Value)
 		assert.Equal(suite.T(), "1.2.3.13", data)
 	})
+	suite.Run("Trap V3", func() {
 
+		// refer: https://github.com/soniah/gosnmp/issues/145
+		client := &gosnmp.GoSNMP{
+			Target:        "127.0.0.1",
+			Port:          uint16(serverAddress.Port),
+			Version:       gosnmp.Version3,
+			Timeout:       time.Duration(30) * time.Second,
+			SecurityModel: gosnmp.UserSecurityModel,
+			MsgFlags:      gosnmp.AuthPriv,
+			//ContextName:   "public", //MUST have
+			Logger: &SnmpLoggerAdapter{suite.Logger},
+			SecurityParameters: &gosnmp.UsmSecurityParameters{
+				UserName:                 "user",
+				AuthenticationProtocol:   gosnmp.SHA,
+				AuthenticationPassphrase: "password",
+				PrivacyProtocol:          gosnmp.AES,
+				PrivacyPassphrase:        "password",
+				Logger:                   &SnmpLoggerAdapter{suite.Logger},
+			},
+		}
+
+		if err := client.Connect(); err != nil {
+			panic(err)
+		}
+		defer client.Conn.Close()
+
+		trap := gosnmp.SnmpTrap{
+			Variables: []gosnmp.SnmpPDU{
+				gosnmp.SnmpPDU{
+					Name:  ".1.2.4.1",
+					Type:  gosnmp.OctetString,
+					Value: ".1.3.6.1.6.3.1.1.5.1",
+				},
+			},
+		}
+
+		if _, err := client.SendTrap(trap); err != nil {
+			panic(err)
+		}
+		_ = <-waiterReadyToWork
+		data := Asn1OctetStringUnwrap(trapDataReceived.Value)
+		assert.Equal(suite.T(), ".1.3.6.1.6.3.1.1.5.1", data)
+	})
 	shandle.Shutdown()
 }
 
@@ -182,7 +227,7 @@ func (suite *TrapTests) TestErrorTraps() {
 		},
 	}
 	shandle := NewSNMPServer(master)
-	shandle.ListenUDP("udp4", ":11611")
+	shandle.ListenUDP("udp4", ":0")
 	var stopWaitChain = make(chan int)
 	go func() {
 		err := shandle.ServeForever()

@@ -1,11 +1,13 @@
 package GoSNMPServer
 
-import "time"
-import "reflect"
-import "github.com/shirou/gopsutil/host"
+import (
+	"reflect"
+	"time"
 
-import "github.com/slayercat/gosnmp"
-import "github.com/pkg/errors"
+	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/host"
+	"github.com/slayercat/gosnmp"
+)
 
 type FuncGetAuthoritativeEngineTime func() uint32
 
@@ -258,7 +260,7 @@ func (t *MasterAgent) SyncConfig() error {
 			return err
 		}
 
-		if len(current.CommunityIDs) == 0 {
+		if len(current.CommunityIDs) == 0 || t.SecurityConfig.NoSecurity {
 			if t.priv.defaultSubAgent != nil {
 				return errors.Errorf("SyncConfig: Config Error: duplicate default agent")
 			}
