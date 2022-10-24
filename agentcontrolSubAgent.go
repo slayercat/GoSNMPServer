@@ -295,8 +295,11 @@ func (t *SubAgent) serveGetBulkRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 			queryForOid := i.Variables[k].Name
 			queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
 			item, id := t.getForPDUValueControl(queryForOidStriped)
+			if item != nil {
+				id += 1
+			}
 			nextIndex := id + int(j)
-			if nextIndex > len(t.OIDs) {
+			if nextIndex >= len(t.OIDs) {
 				if _, found := eomv[queryForOid]; !found {
 					ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
 					eomv[queryForOid] = struct{}{}
@@ -377,7 +380,8 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 }
 
 // serveSetRequest for SetReqeust.
-//                 will just Return  GetResponse for Fullily SUCCESS
+//
+//	will just Return  GetResponse for Fullily SUCCESS
 func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	var ret gosnmp.SnmpPacket = copySnmpPacket(i)
 	ret.PDUType = gosnmp.GetResponse
