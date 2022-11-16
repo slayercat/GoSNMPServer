@@ -1,6 +1,11 @@
 package main
 
-import "os"
+import (
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+)
 import "strings"
 import "github.com/sirupsen/logrus"
 import "github.com/slayercat/gosnmp"
@@ -20,7 +25,7 @@ func makeApp() *cli.App {
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "logLevel", Value: "info"},
 					&cli.StringFlag{Name: "community", Value: "public"},
-					&cli.StringFlag{Name: "bindTo", Value: "127.0.0.1:1161"},
+					&cli.StringFlag{Name: "bindTo", Value: "127.0.0.1:161"},
 					&cli.StringFlag{Name: "v3Username", Value: "testuser"},
 					&cli.StringFlag{Name: "v3AuthenticationPassphrase", Value: "testauth"},
 					&cli.StringFlag{Name: "v3PrivacyPassphrase", Value: "testpriv"},
@@ -89,6 +94,10 @@ func runServer(c *cli.Context) error {
 	if err != nil {
 		logger.Errorf("Error in listen: %+v", err)
 	}
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6061", nil))
+	}()
+	server.SetPoolSize(100)
 	server.ServeForever()
 	return nil
 }

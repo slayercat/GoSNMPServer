@@ -1,17 +1,28 @@
 package GoSNMPServer
 
-import "net"
-import "github.com/pkg/errors"
-import "reflect"
+import (
+	"github.com/panjf2000/ants/v2"
+	"github.com/pkg/errors"
+	"net"
+	_ "net/http/pprof"
+	"reflect"
+)
 
 type SNMPServer struct {
 	wconnStream ISnmpServerListener
 	master      MasterAgent
 	logger      ILogger
+	poolSize    int
+}
+
+type ResForever struct {
+	bytePDU []byte
+	replyer IReplyer
 }
 
 func NewSNMPServer(master MasterAgent) *SNMPServer {
 	ret := new(SNMPServer)
+	ret.poolSize = 10
 	if err := master.ReadyForWork(); err != nil {
 		panic(err)
 	}
@@ -50,22 +61,54 @@ func (server *SNMPServer) ServeForever() error {
 		return errors.New("Not Listen")
 	}
 
-	for {
-		err := server.ServeNextRequest()
+	// Use the pool with a function,
+	// set 10 to the capacity of goroutine pool and 1 second for expired duration.
+	pool, _ := ants.NewPoolWithFunc(server.poolSize, func(i interface{}) {
+		resForever, ok := i.(ResForever)
+		if !ok {
+			return
+		}
+		bytePDU := resForever.bytePDU
+		replyer := resForever.replyer
+
+		result, err := server.master.ResponseForBuffer(bytePDU)
 		if err != nil {
-			var opError *net.OpError
-			if errors.As(err, &opError) {
-				server.logger.Debugf("ServeForever: break because of serveNextRequest error %v", opError)
+			v := "with"
+			if len(result) == 0 {
+				v = "without"
+			}
+			server.logger.Warnf("ResponseForBuffer Error: %v. %s result", err, v)
+		}
+		if len(result) != 0 {
+			if errreply := replyer.ReplyPDU(result); errreply != nil {
+				server.logger.Errorf("Reply PDU meet err:", errreply)
+				replyer.Shutdown()
+				return
+			}
+		}
+		if err != nil {
+			replyer.Shutdown()
+		}
+	})
+	defer pool.Release()
+
+	for {
+		err := server.ServeNextRequest(pool)
+		if err != nil {
+			var operror *net.OpError
+			if errors.As(err, &operror) {
+				server.logger.Debugf("serveforever: break because of servenextrequest error %v", operror)
 				return nil
 			}
 
-			server.logger.Errorf("ServeForever: ServeNextRequest error %v [type %v]", err, reflect.TypeOf(err))
-			return errors.Wrap(err, "ServeNextRequest")
+			server.logger.Errorf("serveforever: servenextrequest error %v [type %v]", err, reflect.TypeOf(err))
+			return errors.Wrap(err, "servenextrequest")
 		}
 	}
+
 }
 
-func (server *SNMPServer) ServeNextRequest() (err error) {
+func (server *SNMPServer) ServeNextRequest(pool *ants.PoolWithFunc) (err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			switch err.(type) {
@@ -78,27 +121,20 @@ func (server *SNMPServer) ServeNextRequest() (err error) {
 			return
 		}
 	}()
+
 	bytePDU, replyer, err := server.wconnStream.NextSnmp()
 	if err != nil {
 		return err
 	}
-	result, err := server.master.ResponseForBuffer(bytePDU)
-	if err != nil {
-		v := "with"
-		if len(result) == 0 {
-			v = "without"
-		}
-		server.logger.Warnf("ResponseForBuffer Error: %v. %s result", err, v)
+	resForever := ResForever{
+		bytePDU: bytePDU,
+		replyer: replyer,
 	}
-	if len(result) != 0 {
-		if errreply := replyer.ReplyPDU(result); errreply != nil {
-			server.logger.Errorf("Reply PDU meet err:", errreply)
-			replyer.Shutdown()
-			return nil
-		}
-	}
-	if err != nil {
-		replyer.Shutdown()
-	}
+	_ = pool.Invoke(resForever)
+
 	return nil
+}
+
+func (server *SNMPServer) SetPoolSize(poolSize int) {
+	server.poolSize = poolSize
 }

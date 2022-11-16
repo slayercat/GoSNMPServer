@@ -1,13 +1,17 @@
 package ucdMib
 
-import "github.com/slayercat/gosnmp"
+import (
+	"github.com/slayercat/gosnmp"
+	"time"
+)
 import "github.com/slayercat/GoSNMPServer"
 import "github.com/shirou/gopsutil/cpu"
 import "github.com/shirou/gopsutil/disk"
 import "github.com/prometheus/procfs"
 
 // SystemStatsOIDs Returns a list of memory operation.
-//   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
+//
+//	see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
 func SystemStatsOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{
 		{
@@ -63,6 +67,7 @@ func SystemStatsOIDs() []*GoSNMPServer.PDUValueControlItem {
 			Type: gosnmp.Counter32,
 			OnGet: func() (value interface{}, err error) {
 				if val, err := cpu.Times(false); err == nil {
+					time.Sleep(2 * time.Second)
 					return GoSNMPServer.Asn1Counter32Wrap(uint(val[0].Idle)), nil
 				} else {
 					return nil, err
