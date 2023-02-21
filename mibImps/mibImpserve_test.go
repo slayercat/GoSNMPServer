@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-import "github.com/slayercat/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer"
 
 type SnmpServerTestSuite struct {
 	suite.Suite

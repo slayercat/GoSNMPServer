@@ -1,10 +1,10 @@
 package mibImps
 
-import "github.com/slayercat/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer"
 
-import "github.com/slayercat/GoSNMPServer/mibImps/dismanEventMib"
-import "github.com/slayercat/GoSNMPServer/mibImps/ifMib"
-import "github.com/slayercat/GoSNMPServer/mibImps/ucdMib"
+import "github.com/Chien-W/GoSNMPServer/mibImps/dismanEventMib"
+import "github.com/Chien-W/GoSNMPServer/mibImps/ifMib"
+import "github.com/Chien-W/GoSNMPServer/mibImps/ucdMib"
 
 func init() {
 	g_Logger = GoSNMPServer.NewDiscardLogger()
@@ -12,7 +12,7 @@ func init() {
 
 var g_Logger GoSNMPServer.ILogger
 
-//SetupLogger Setups Logger for All sub mibs.
+// SetupLogger Setups Logger for All sub mibs.
 func SetupLogger(i GoSNMPServer.ILogger) {
 	g_Logger = i
 	dismanEventMib.SetupLogger(i)
@@ -21,7 +21,8 @@ func SetupLogger(i GoSNMPServer.ILogger) {
 }
 
 // All function provides a list of common used OID
-//    includes part of ucdMib, ifMib, and dismanEventMib
+//
+//	includes part of ucdMib, ifMib, and dismanEventMib
 func All() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{}
 	toRet = append(toRet, dismanEventMib.All()...)

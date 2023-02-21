@@ -4,7 +4,7 @@ import (
 	"github.com/slayercat/gosnmp"
 	"time"
 )
-import "github.com/slayercat/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer"
 import "github.com/shirou/gopsutil/cpu"
 import "github.com/shirou/gopsutil/disk"
 import "github.com/prometheus/procfs"

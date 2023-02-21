@@ -1,7 +1,7 @@
 GoSNMPServer
 ======
 [![Build Status](https://travis-ci.org/slayercat/GoSNMPServer.svg?branch=master)](https://travis-ci.org/slayercat/GoSNMPServer)
-[![GoDoc](https://godoc.org/github.com/slayercat/GoSNMPServer?status.png)](https://godoc.org/github.com/slayercat/GoSNMPServer)
+[![GoDoc](https://godoc.org/github.com/Chien-W/GoSNMPServer?status.png)](https://godoc.org/github.com/Chien-W/GoSNMPServer)
 [![codecov](https://codecov.io/gh/slayercat/GoSNMPServer/branch/master/graph/badge.svg)](https://codecov.io/gh/slayercat/GoSNMPServer)
 
 GoSNMPServer is an SNMP server library fully written in Go. It provides Server Get,
@@ -13,7 +13,7 @@ TL;DR
 -----
 Build your own SNMP Server, try this:
 ```shell
-go install github.com/slayercat/GoSNMPServer/cmd/gosnmpserver
+go install github.com/Chien-W/GoSNMPServer/cmd/gosnmpserver
 $(go env GOPATH)/bin/gosnmpserver run-server
 snmpwalk -v 3 -l authPriv  -n public -u testuser   -a md5 -A testauth -x des -X testpriv 127.0.0.1:1161 1
 ```
@@ -22,8 +22,8 @@ Quick Start
 -----
 ```golang
 import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
-import "github.com/slayercat/GoSNMPServer/mibImps"
+import "github.com/Chien-W/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer/mibImps"
 ```
 
 ```golang
@@ -60,7 +60,7 @@ server.ServeForever()
 
 Serve your own oids
 -----
-This library provides some common oid for use. See [mibImps](https://github.com/slayercat/GoSNMPServer/tree/master/mibImps) for code, See [![GoDoc](https://godoc.org/github.com/slayercat/GoSNMPServe/mibImpsr?status.png)](https://godoc.org/github.com/slayercat/GoSNMPServer/mibImps) here.
+This library provides some common oid for use. See [mibImps](https://github.com/Chien-W/GoSNMPServer/tree/master/mibImps) for code, See [![GoDoc](https://godoc.org/github.com/slayercat/GoSNMPServe/mibImpsr?status.png)](https://godoc.org/github.com/Chien-W/GoSNMPServer/mibImps) here.
 
 
 Append `GoSNMPServer.PDUValueControlItem` to your SubAgent OIDS:

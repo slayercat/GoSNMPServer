@@ -6,12 +6,13 @@ import "runtime"
 import "strings"
 import "encoding/hex"
 import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer"
 import "github.com/shirou/gopsutil/net"
 import "github.com/pkg/errors"
 
 // NetworkOIDs Returns a list of network data.
-//   see http://www.net-snmp.org/docs/mibs/interfaces.html
+//
+//	see http://www.net-snmp.org/docs/mibs/interfaces.html
 func NetworkOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{}
 	valInterfaces, err := net.Interfaces()

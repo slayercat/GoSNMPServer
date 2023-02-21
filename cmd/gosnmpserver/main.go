@@ -9,8 +9,8 @@ import (
 import "strings"
 import "github.com/sirupsen/logrus"
 import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
-import "github.com/slayercat/GoSNMPServer/mibImps"
+import "github.com/Chien-W/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer/mibImps"
 
 import "github.com/urfave/cli/v2"
 

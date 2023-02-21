@@ -1,6 +1,6 @@
 package ucdMib
 
-import "github.com/slayercat/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer"
 
 func init() {
 	g_Logger = GoSNMPServer.NewDiscardLogger()
@@ -8,7 +8,7 @@ func init() {
 
 var g_Logger GoSNMPServer.ILogger
 
-//SetupLogger Setups Logger for this mib
+// SetupLogger Setups Logger for this mib
 func SetupLogger(i GoSNMPServer.ILogger) {
 	g_Logger = i
 }

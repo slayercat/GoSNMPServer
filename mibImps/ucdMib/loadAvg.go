@@ -2,11 +2,12 @@ package ucdMib
 
 import "fmt"
 import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
+import "github.com/Chien-W/GoSNMPServer"
 import "github.com/shirou/gopsutil/load"
 
 // SystemLoadOIDs Returns a list of system Load.
-//   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
+//
+//	see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
 func SystemLoadOIDs() []*GoSNMPServer.PDUValueControlItem {
 	return []*GoSNMPServer.PDUValueControlItem{
 		{

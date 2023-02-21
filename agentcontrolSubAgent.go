@@ -205,12 +205,19 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	for id, varItem := range i.Variables {
 		item, _ := t.getForPDUValueControl(varItem.Name)
 		if item == nil {
-			if ret.Error == gosnmp.NoError {
+			/*if ret.Error == gosnmp.NoError {
 				ret.Error = gosnmp.NoSuchName
 				ret.ErrorIndex = uint8(id)
 			}
 			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(varItem.Name))
-			continue
+			continue*/
+			ctl := gosnmp.SnmpPDU{
+				Name:   varItem.Name,
+				Type:   gosnmp.OctetString,
+				Value:  "-99997",
+				Logger: &SnmpLoggerAdapter{t.Logger},
+			}
+			ret.Variables = append(ret.Variables, ctl)
 		}
 
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)

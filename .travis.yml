@@ -25,7 +25,7 @@ script:
  - go test  -coverpkg ./...   -v ./... 
                         -coverprofile=tCoverage1.txt -covermode=atomic
  - cat tCoverage*.txt > coverage.txt
- - go build github.com/slayercat/GoSNMPServer/cmd/gosnmpserver
+ - go build github.com/Chien-W/GoSNMPServer/cmd/gosnmpserver
 
 after_success:
  - bash <(curl -s https://codecov.io/bash)
