@@ -218,8 +218,8 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 				Logger: &SnmpLoggerAdapter{t.Logger},
 			}
 			ret.Variables = append(ret.Variables, ctl)
+			continue
 		}
-
 		ctl, snmperr := t.getForPDUValueControlResult(item, i)
 		if snmperr != gosnmp.NoError && ret.Error == gosnmp.NoError {
 			ret.Error = snmperr
