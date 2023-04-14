@@ -1,5 +1,6 @@
 package GoSNMPServer
 
+import "encoding/asn1"
 import "github.com/pkg/errors"
 import "github.com/slayercat/gosnmp"
 import "strings"
@@ -22,24 +23,22 @@ func copySnmpPacket(i *gosnmp.SnmpPacket) gosnmp.SnmpPacket {
 }
 
 func oidToByteString(oid string) string {
-	xi := strings.Split(oid, ".")
-	out := []rune{}
-	for id, each := range xi {
-		if each == "" {
-			if id == 0 {
-				continue
-			} else {
-				panic(errors.Errorf("oidToByteString not valid id. value=%v", oid))
-			}
+	oid = strings.TrimLeft(oid, ".")
 
-		}
-		i, err := strconv.ParseInt(each, 10, 32)
+	components := strings.Split(oid, ".")
+	obj := make([]int, len(components))
+	for i, c := range components {
+		num, err := strconv.Atoi(c)
 		if err != nil {
 			panic(err)
 		}
-		out = append(out, rune(i))
+		obj[i] = num
 	}
-	return string(out)
+	oidBytes, err := asn1.Marshal(obj)
+	if err != nil {
+		panic(err)
+	}
+	return string(oidBytes), nil
 }
 
 // IsValidObjectIdentifier will check a oid string is valid oid
