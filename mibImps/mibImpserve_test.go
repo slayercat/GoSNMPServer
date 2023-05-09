@@ -6,8 +6,10 @@ import (
 	"github.com/slayercat/gosnmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"log"
 	"net"
 	"os/exec"
+	"runtime/debug"
 	"testing"
 )
 
@@ -52,7 +54,13 @@ func (suite *SnmpServerTestSuite) SetupTest() {
 	suite.shandle = GoSNMPServer.NewSNMPServer(master)
 	suite.shandle.ListenUDP("udp4", ":0")
 	go func() {
-		err := suite.shandle.ServeForever()
+		notice := make(chan interface{}, 0)
+		go func() {
+			x := <-notice
+			log.Println("%+v\n", x)
+			panic(string(debug.Stack()))
+		}()
+		err := suite.shandle.ServeForever(notice)
 		if err != nil {
 			panic(err)
 		}

@@ -56,7 +56,7 @@ func (server *SNMPServer) Shutdown() {
 	}
 }
 
-func (server *SNMPServer) ServeForever() error {
+func (server *SNMPServer) ServeForever(notice chan interface{}) error {
 	if server.wconnStream == nil {
 		return errors.New("Not Listen")
 	}
@@ -89,7 +89,11 @@ func (server *SNMPServer) ServeForever() error {
 		if err != nil {
 			replyer.Shutdown()
 		}
-	})
+	}, ants.WithPanicHandler(func(i interface{}) {
+		if e := recover(); e != nil {
+			notice <- e
+		}
+	}))
 	defer pool.Release()
 
 	for {

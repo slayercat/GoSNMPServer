@@ -2,8 +2,10 @@ package GoSNMPServer
 
 import (
 	"bytes"
+	"log"
 	"net"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -145,7 +147,13 @@ func (suite *ServerTests) TestErrors() {
 	shandle.ListenUDP("udp4", ":0")
 	var stopWaitChain = make(chan int)
 	go func() {
-		err := shandle.ServeForever()
+		notice := make(chan interface{}, 0)
+		go func() {
+			x := <-notice
+			log.Println("%+v\n", x)
+			panic(string(debug.Stack()))
+		}()
+		err := shandle.ServeForever(notice)
 		if err != nil {
 			suite.Logger.Errorf("error in ServeForever: %v", err)
 		} else {
@@ -260,7 +268,13 @@ func (suite *ServerTests) TestGetSetOids() {
 	shandle.ListenUDP("udp4", ":0")
 	var stopWaitChain = make(chan int)
 	go func() {
-		err := shandle.ServeForever()
+		notice := make(chan interface{}, 0)
+		go func() {
+			x := <-notice
+			log.Println("%+v\n", x)
+			panic(string(debug.Stack()))
+		}()
+		err := shandle.ServeForever(notice)
 		if err != nil {
 			suite.Logger.Errorf("error in ServeForever: %v", err)
 		} else {

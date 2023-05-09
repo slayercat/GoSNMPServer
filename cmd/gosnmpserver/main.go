@@ -5,6 +5,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"runtime/debug"
 )
 import "strings"
 import "github.com/sirupsen/logrus"
@@ -98,6 +99,12 @@ func runServer(c *cli.Context) error {
 		log.Println(http.ListenAndServe("localhost:6061", nil))
 	}()
 	server.SetPoolSize(100)
-	server.ServeForever()
+	notice := make(chan interface{}, 0)
+	go func() {
+		x := <-notice
+		log.Println("%+v\n", x)
+		panic(string(debug.Stack()))
+	}()
+	server.ServeForever(notice)
 	return nil
 }
