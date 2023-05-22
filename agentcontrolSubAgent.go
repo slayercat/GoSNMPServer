@@ -24,6 +24,15 @@ type SubAgent struct {
 }
 
 func (t *SubAgent) SyncConfig() error {
+	var (
+		err error
+	)
+	for _, oid := range t.OIDs {
+		err = IsValidObjectIdentifier(oid.OID)
+		if err != nil {
+			return err
+		}
+	}
 	sort.Sort(byOID(t.OIDs))
 	t.Logger.Infof("Total OIDs of %v: %v", t.CommunityIDs, len(t.OIDs))
 	for id, each := range t.OIDs {
@@ -441,8 +450,6 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	return &ret, nil
 }
 
-// getForPDUValueControl
-// FIX BUG:
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
 	toQuery := oidToByteString(oid)
 	i := sort.Search(len(t.OIDs), func(i int) bool {

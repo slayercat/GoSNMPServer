@@ -1,6 +1,11 @@
 package GoSNMPServer
 
-import "github.com/slayercat/gosnmp"
+import (
+	"github.com/pkg/errors"
+	"github.com/slayercat/gosnmp"
+	"strconv"
+	"strings"
+)
 
 func getPktContextOrCommunity(i *gosnmp.SnmpPacket) string {
 	if i.Version == gosnmp.Version3 {
@@ -26,16 +31,20 @@ func oidToByteString(oid string) string {
 }
 
 // IsValidObjectIdentifier will check a oid string is valid oid
-func IsValidObjectIdentifier(oid string) (result bool) {
-	defer func() {
-		if err := recover(); err != nil {
-			result = false
-			return
+func IsValidObjectIdentifier(oid string) error {
+	xi := strings.Split(oid, ".")
+	for id, each := range xi {
+		if each == "" {
+			if id == 0 {
+				continue
+			} else {
+				return errors.Errorf("oidToByteString not valid id. value=%v", oid)
+			}
 		}
-	}()
-	if len(oid) == 0 {
-		return false
+		i, err := strconv.ParseInt(each, 10, 32)
+		if err != nil || i < 0 {
+			return errors.Errorf("oidToByteString not valid id. value=%v", oid)
+		}
 	}
-	oidToByteString(oid)
-	return true
+	return nil
 }
