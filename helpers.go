@@ -47,7 +47,7 @@ func IsValidObjectIdentifier(oid string) (result bool) {
 }
 
 // VerifyOid will check an oid string is valid oid,
-// each number should be positive int32.
+// each number should be positive uint32.
 func VerifyOid(oid string) error {
 	xi := strings.Split(oid, ".")
 	for id, each := range xi {
