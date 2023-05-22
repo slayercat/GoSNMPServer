@@ -57,7 +57,7 @@ func VerifyOid(oid string) error {
 			}
 			return errors.New("oidToByteString not valid int,but it is empty " + oid)
 		}
-		i, err := strconv.ParseInt(each, 10, 32)
+		i, err := strconv.ParseUint(each, 10, 32)
 		if err != nil {
 			return errors.New("oidToByteString not valid int. value=" + each)
 		} else if i < 0 {
