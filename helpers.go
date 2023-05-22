@@ -30,7 +30,7 @@ func oidToByteString(oid string) string {
 	return oid
 }
 
-// IsValidObjectIdentifier will check a oid string is valid oid
+// IsValidObjectIdentifier will check an oid string is valid oid
 // Deprecated: instead use VerifyOid.
 func IsValidObjectIdentifier(oid string) (result bool) {
 	defer func() {
@@ -46,6 +46,8 @@ func IsValidObjectIdentifier(oid string) (result bool) {
 	return true
 }
 
+// VerifyOid will check an oid string is valid oid,
+// each number should be positive int32.
 func VerifyOid(oid string) error {
 	xi := strings.Split(oid, ".")
 	for id, each := range xi {
