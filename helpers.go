@@ -31,19 +31,35 @@ func oidToByteString(oid string) string {
 }
 
 // IsValidObjectIdentifier will check a oid string is valid oid
-func IsValidObjectIdentifier(oid string) error {
+// Deprecated: instead use VerifyOid.
+func IsValidObjectIdentifier(oid string) (result bool) {
+	defer func() {
+		if err := recover(); err != nil {
+			result = false
+			return
+		}
+	}()
+	if len(oid) == 0 {
+		return false
+	}
+	oidToByteString(oid)
+	return true
+}
+
+func VerifyOid(oid string) error {
 	xi := strings.Split(oid, ".")
 	for id, each := range xi {
 		if each == "" {
 			if id == 0 {
 				continue
-			} else {
-				return errors.Errorf("oidToByteString not valid id. value=%v", oid)
 			}
+			return errors.New("oidToByteString not valid int,but it is empty " + oid)
 		}
 		i, err := strconv.ParseInt(each, 10, 32)
-		if err != nil || i < 0 {
-			return errors.Errorf("oidToByteString not valid id. value=%v", oid)
+		if err != nil {
+			return errors.New("oidToByteString not valid int. value=" + each)
+		} else if i < 0 {
+			return errors.New("oidToByteString not valid int. value=" + each + " should be positive")
 		}
 	}
 	return nil
