@@ -497,7 +497,7 @@ func (suite *ServerTests) getTestGetSetOIDS() []*PDUValueControlItem {
 			Type: gosnmp.ObjectIdentifier,
 			OnGet: func() (value interface{}, err error) {
 				target := baseTestSuite.privGetSetOIDS.val_ObjectIdentifier
-				if !IsValidObjectIdentifier(target) {
+				if err := IsValidObjectIdentifier(target); err != nil {
 					target = "1.2.3.4"
 				}
 				return Asn1ObjectIdentifierWrap(target), nil
@@ -506,7 +506,7 @@ func (suite *ServerTests) getTestGetSetOIDS() []*PDUValueControlItem {
 				suite.Logger.Info("set ObjectIdentifier. value=", value)
 				val := Asn1ObjectIdentifierUnwrap(value)
 				suite.Logger.Infof("after Asn1ObjectIdentifierUnwrap %v->%v", value, val)
-				if !IsValidObjectIdentifier(val) {
+				if err := IsValidObjectIdentifier(val); err != nil {
 					return errors.New("not a valid oid")
 				}
 				baseTestSuite.privGetSetOIDS.val_ObjectIdentifier = val

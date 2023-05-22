@@ -23,7 +23,14 @@ type SubAgent struct {
 	master *MasterAgent
 }
 
-func (t *SubAgent) SyncConfig() error {
+func (t *SubAgent) SyncConfig() (err error) {
+	for _, oid := range t.OIDs {
+		err = IsValidObjectIdentifier(oid.OID)
+		if err != nil {
+			t.Logger.Error(err)
+			return err
+		}
+	}
 	sort.Sort(byOID(t.OIDs))
 	t.Logger.Infof("Total OIDs of %v: %v", t.CommunityIDs, len(t.OIDs))
 	for id, each := range t.OIDs {
