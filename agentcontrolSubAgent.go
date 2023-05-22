@@ -441,6 +441,8 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	return &ret, nil
 }
 
+// getForPDUValueControl
+// FIX BUG:
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
 	toQuery := oidToByteString(oid)
 	i := sort.Search(len(t.OIDs), func(i int) bool {
