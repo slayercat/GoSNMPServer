@@ -456,13 +456,21 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 }
 
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
-	toQuery := oidToByteString(oid)
+	var toQuery string
+	switch oid[0] {
+	case '.':
+		toQuery = oidToByteString(strings.Replace(oid, ".", "", 1))
+	default:
+		toQuery = oidToByteString(oid)
+	}
+	t.Logger.Debugln("oid:", oid, " toQuery:", toQuery)
 	i := sort.Search(len(t.OIDs), func(i int) bool {
 		thisOid := oidToByteString(t.OIDs[i].OID)
 		return thisOid >= toQuery
 	})
 	if i < len(t.OIDs) {
 		thisOid := oidToByteString(t.OIDs[i].OID)
+		t.Logger.Debugln("thisOid:", thisOid, " toQuery:", t.OIDs[i].OID)
 		if thisOid == toQuery {
 			return t.OIDs[i], i
 		}
