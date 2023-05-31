@@ -1,9 +1,11 @@
 package GoSNMPServer
 
-import "github.com/pkg/errors"
-import "github.com/slayercat/gosnmp"
-import "strings"
-import "strconv"
+import (
+	"github.com/pkg/errors"
+	"github.com/slayercat/gosnmp"
+	"strconv"
+	"strings"
+)
 
 func getPktContextOrCommunity(i *gosnmp.SnmpPacket) string {
 	if i.Version == gosnmp.Version3 {
@@ -21,28 +23,15 @@ func copySnmpPacket(i *gosnmp.SnmpPacket) gosnmp.SnmpPacket {
 	return ret
 }
 
+// Fix BUG: When converting certain byte values to the rune type,
+// some byte values may not be represented correctly because the rune type represents a Unicode character.
+// This can cause byte values to become unpredictable or incorrect after conversion.
 func oidToByteString(oid string) string {
-	xi := strings.Split(oid, ".")
-	out := []rune{}
-	for id, each := range xi {
-		if each == "" {
-			if id == 0 {
-				continue
-			} else {
-				panic(errors.Errorf("oidToByteString not valid id. value=%v", oid))
-			}
-
-		}
-		i, err := strconv.ParseInt(each, 10, 32)
-		if err != nil {
-			panic(err)
-		}
-		out = append(out, rune(i))
-	}
-	return string(out)
+	return oid
 }
 
-// IsValidObjectIdentifier will check a oid string is valid oid
+// IsValidObjectIdentifier will check an oid string is valid oid
+// Deprecated: instead use VerifyOid.
 func IsValidObjectIdentifier(oid string) (result bool) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -55,4 +44,25 @@ func IsValidObjectIdentifier(oid string) (result bool) {
 	}
 	oidToByteString(oid)
 	return true
+}
+
+// VerifyOid will check an oid string is valid oid,
+// each number should be positive uint32.
+func VerifyOid(oid string) error {
+	xi := strings.Split(oid, ".")
+	for id, each := range xi {
+		if each == "" {
+			if id == 0 {
+				continue
+			}
+			return errors.New("oidToByteString not valid int,but it is empty " + oid)
+		}
+		i, err := strconv.ParseUint(each, 10, 32)
+		if err != nil {
+			return errors.New("oidToByteString not valid int. value=" + each)
+		} else if i < 0 {
+			return errors.New("oidToByteString not valid int. value=" + each + " should be positive")
+		}
+	}
+	return nil
 }

@@ -16,19 +16,21 @@ const PermissionAllowanceAllowed PermissionAllowance = 0
 // PermissionAllowanceDenied denies for access
 const PermissionAllowanceDenied PermissionAllowance = 1
 
-//FuncPDUControlCheckPermission checks for permission.
-//   return PermissionAllowanceAllowed / PermissionAllowanceDenied
+// FuncPDUControlCheckPermission checks for permission.
+//
+//	return PermissionAllowanceAllowed / PermissionAllowanceDenied
 type FuncPDUControlCheckPermission func(pktVersion gosnmp.SnmpVersion, pduType gosnmp.PDUType, contextName string) PermissionAllowance
 
-//FuncPDUControlTrap will be called on trap.
-//    args:
-//		isInform: indicate if the request is a InformRequest.
-//          true  -- It's a InformRequest. data will be returns to the client
-//			false -- It's a trap.  data to returned will drop silencely.
-// 		trapdata: what client asks for.
-//    returns:
-//		dataret -- try to return to client. nil for nothing to return
-//		err  --  any error?(will return to client by string)
+// FuncPDUControlTrap will be called on trap.
+//
+//	   args:
+//			isInform: indicate if the request is a InformRequest.
+//	         true  -- It's a InformRequest. data will be returns to the client
+//				false -- It's a trap.  data to returned will drop silencely.
+//			trapdata: what client asks for.
+//	   returns:
+//			dataret -- try to return to client. nil for nothing to return
+//			err  --  any error?(will return to client by string)
 type FuncPDUControlTrap func(isInform bool, trapdata gosnmp.SnmpPDU) (dataret interface{}, err error)
 
 // FuncPDUControlGet will be called on get value
@@ -123,9 +125,7 @@ func (x byOID) Len() int {
 }
 
 func (x byOID) Less(i, j int) bool {
-	stripedI := oidToByteString(x[i].OID)
-	stripedJ := oidToByteString(x[j].OID)
-	return stripedI < stripedJ
+	return oidToByteString(x[i].OID) < oidToByteString(x[j].OID)
 }
 
 func (x byOID) Swap(i, j int) {

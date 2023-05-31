@@ -24,14 +24,21 @@ type SubAgent struct {
 }
 
 func (t *SubAgent) SyncConfig() error {
+	var (
+		err error
+	)
+	for _, oid := range t.OIDs {
+		if err = VerifyOid(oid.OID); err != nil {
+			return err
+		}
+	}
+	t.Logger.Debugf("Total OIDs of %v: %v", t.CommunityIDs, len(t.OIDs))
+
 	sort.Sort(byOID(t.OIDs))
-	t.Logger.Infof("Total OIDs of %v: %v", t.CommunityIDs, len(t.OIDs))
 	for id, each := range t.OIDs {
 		t.Logger.Infof("OIDs of %v: %v", t.CommunityIDs, each.OID)
 		if id != 0 && t.OIDs[id].OID == t.OIDs[id-1].OID {
-			verr := fmt.Sprintf("community %v: meet duplicate oid %v", t.CommunityIDs, each.OID)
-			t.Logger.Errorf(verr)
-			return errors.New(verr)
+			return fmt.Errorf("community %v: meet duplicate oid %v", t.CommunityIDs, each.OID)
 		}
 	}
 	return nil
@@ -442,16 +449,14 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 }
 
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
-	toQuery := oidToByteString(oid)
+	// todo: maybe we can implement add "." at other place.
+	toQuery := "." + oidToByteString(oid)
 	i := sort.Search(len(t.OIDs), func(i int) bool {
 		thisOid := oidToByteString(t.OIDs[i].OID)
 		return thisOid >= toQuery
 	})
-	if i < len(t.OIDs) {
-		thisOid := oidToByteString(t.OIDs[i].OID)
-		if thisOid == toQuery {
-			return t.OIDs[i], i
-		}
+	if i < len(t.OIDs) && oidToByteString(t.OIDs[i].OID) == toQuery {
+		return t.OIDs[i], i
 	}
 	return nil, i
 }
