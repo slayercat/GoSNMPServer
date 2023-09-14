@@ -125,7 +125,11 @@ func (x byOID) Len() int {
 }
 
 func (x byOID) Less(i, j int) bool {
-	return oidToByteString(x[i].OID) < oidToByteString(x[j].OID)
+	bsi := oidToByteString(x[i].OID)
+	bsj := oidToByteString(x[j].OID)
+	//  oidToByteString(x[i].OID) < oidToByteString(x[j].OID)
+	return compareByteString(bsi, bsj) == ByteStringCompareResultLessThen
+
 }
 
 func (x byOID) Swap(i, j int) {

@@ -449,14 +449,19 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 }
 
 func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, int) {
-	// todo: maybe we can implement add "." at other place.
-	toQuery := "." + oidToByteString(oid)
+	toQuery := oidToByteString(oid)
 	i := sort.Search(len(t.OIDs), func(i int) bool {
 		thisOid := oidToByteString(t.OIDs[i].OID)
-		return thisOid >= toQuery
+		compareResult := compareByteString(thisOid, toQuery)
+		// thisOid >= toQuery
+		return compareResult == ByteStringCompareResultGreaterThen || compareResult == ByteStringCompareResultEqual
 	})
-	if i < len(t.OIDs) && oidToByteString(t.OIDs[i].OID) == toQuery {
-		return t.OIDs[i], i
+
+	if i < len(t.OIDs) {
+		// t.OIDs[i].OID == toQuery
+		if compareByteString(oidToByteString(t.OIDs[i].OID), toQuery) == ByteStringCompareResultEqual {
+			return t.OIDs[i], i
+		}
 	}
 	return nil, i
 }

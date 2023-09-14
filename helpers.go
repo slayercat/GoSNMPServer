@@ -23,11 +23,58 @@ func copySnmpPacket(i *gosnmp.SnmpPacket) gosnmp.SnmpPacket {
 	return ret
 }
 
+type ByteString []int
+type ByteStringCompareResult int
+
+const ByteStringCompareResultEqual = 0
+const ByteStringCompareResultLessThen = -1
+const ByteStringCompareResultGreaterThen = 1
+
+func compareByteString(arr1, arr2 ByteString) ByteStringCompareResult {
+	minLength := len(arr1)
+	if len(arr2) < minLength {
+		minLength = len(arr2)
+	}
+
+	for i := 0; i < minLength; i++ {
+		if arr1[i] < arr2[i] {
+			return ByteStringCompareResultLessThen
+		} else if arr1[i] > arr2[i] {
+			return ByteStringCompareResultGreaterThen
+		}
+	}
+
+	if len(arr1) < len(arr2) {
+		return ByteStringCompareResultLessThen
+	} else if len(arr1) > len(arr2) {
+		return ByteStringCompareResultGreaterThen
+	}
+
+	return ByteStringCompareResultEqual
+}
+
 // Fix BUG: When converting certain byte values to the rune type,
 // some byte values may not be represented correctly because the rune type represents a Unicode character.
 // This can cause byte values to become unpredictable or incorrect after conversion.
-func oidToByteString(oid string) string {
-	return oid
+func oidToByteString(oid string) ByteString {
+	xi := strings.Split(oid, ".")
+	out := []int{}
+	for id, each := range xi {
+		if each == "" {
+			if id == 0 {
+				continue
+			} else {
+				panic(errors.Errorf("oidToByteString not valid id. value=%v", oid))
+			}
+
+		}
+		i, err := strconv.ParseInt(each, 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		out = append(out, int(i))
+	}
+	return ByteString(out)
 }
 
 // IsValidObjectIdentifier will check an oid string is valid oid
