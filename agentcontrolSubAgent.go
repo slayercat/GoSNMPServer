@@ -297,7 +297,7 @@ func (t *SubAgent) serveGetBulkRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 
 	t.Logger.Debugf("handle remaining (%d, max-repetitions=%d)", vc-i.NonRepeaters, i.MaxRepetitions)
 	eomv := make(map[string]struct{})
-	for j := 0; j < i.MaxRepetitions; j++ { // loop through repetitions
+	for j := uint32(0); j < i.MaxRepetitions; j++ { // loop through repetitions
 		for k := i.NonRepeaters; k < vc; k++ { // loop through "repeaters"
 			queryForOid := i.Variables[k].Name
 			queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
