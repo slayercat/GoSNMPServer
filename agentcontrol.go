@@ -46,8 +46,8 @@ func (v *SecurityConfig) FindForUser(name string) *gosnmp.UsmSecurityParameters 
 	if v.Users == nil {
 		return nil
 	}
-	for item, user := range v.Users {
-		if user.UserName == name {
+	for item := range v.Users {
+		if v.Users[item].UserName == name {
 			return &v.Users[item]
 		}
 	}
