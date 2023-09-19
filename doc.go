@@ -1,5 +1,4 @@
 /*
-
 GoSNMPServer is an SNMP server library fully written in Go. It **WILL** provides Server Get,
 GetNext, GetBulk, Walk, BulkWalk, Set and Traps. It supports IPv4 and
 IPv6, using __SNMPv2c__ or __SNMPv3__. Builds are tested against
@@ -11,10 +10,9 @@ Build your own SNMP Server, try this:
 	$(go env GOPATH)/bin/gosnmpserver run-server
 	snmpwalk -v 3 -l authPriv  -n public -u testuser   -a md5 -A testauth -x des -X testpriv 127.0.0.1:1161 1
 
-
 Some Code Here:
 
-	import "github.com/slayercat/gosnmp"
+	import "github.com/gosnmp/gosnmp"
 	import "github.com/slayercat/GoSNMPServer"
 	import "github.com/slayercat/GoSNMPServer/mibImps"
 
@@ -47,9 +45,7 @@ Some Code Here:
 	}
 	server.ServeForever()
 
-
-
-Serve your own oids
+# Serve your own oids
 
 This library provides some common oid for use.  See godoc for details.
 
@@ -63,6 +59,5 @@ Append `GoSNMPServer.PDUValueControlItem` to your SubAgent OIDS:
 		OnGet:    func() (value interface{}, err error) { return GoSNMPServer.Asn1IntegerWrap(ifIndex), nil },
 		Document: "ifIndex",
 	},
-
 */
 package GoSNMPServer

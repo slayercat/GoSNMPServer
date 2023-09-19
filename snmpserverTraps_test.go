@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gosnmp/gosnmp"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/slayercat/gosnmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -142,14 +142,14 @@ func (suite *TrapTests) TestTraps() {
 			SecurityModel: gosnmp.UserSecurityModel,
 			MsgFlags:      gosnmp.AuthPriv,
 			//ContextName:   "public", //MUST have
-			Logger: &SnmpLoggerAdapter{suite.Logger},
+			Logger: gosnmp.NewLogger(&SnmpLoggerAdapter{suite.Logger}),
 			SecurityParameters: &gosnmp.UsmSecurityParameters{
 				UserName:                 "user",
 				AuthenticationProtocol:   gosnmp.SHA,
 				AuthenticationPassphrase: "password",
 				PrivacyProtocol:          gosnmp.AES,
 				PrivacyPassphrase:        "password",
-				Logger:                   &SnmpLoggerAdapter{suite.Logger},
+				Logger:                   gosnmp.NewLogger(&SnmpLoggerAdapter{suite.Logger}),
 			},
 		}
 

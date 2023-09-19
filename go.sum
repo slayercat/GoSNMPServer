@@ -29,10 +29,10 @@ github.com/sirupsen/logrus v1.4.2 h1:SPIRibHv4MatM3XXNO2BJeFLZwZ2LvZgfQ5+UNI2im4
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE=
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
-github.com/slayercat/gosnmp v1.24.1-0.20200225080903-29819b7774e5 h1:Zq1YuJvWWpmrHqdIBK95DFgI7+pZXL/zejuLxRljL2I=
-github.com/slayercat/gosnmp v1.24.1-0.20200225080903-29819b7774e5/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
-github.com/slayercat/gosnmp v1.24.1 h1:brqlcYbSEa5tESH+Dwo82Nm4Hnzt4pk1kTQ6Sxcl68w=
-github.com/slayercat/gosnmp v1.24.1/go.mod h1:EEciH24gj0Z8lijV/NUrlAZ8D1TYHImV0cvLMsUpRmM=
+github.com/gosnmp/gosnmp v1.24.1-0.20200225080903-29819b7774e5 h1:Zq1YuJvWWpmrHqdIBK95DFgI7+pZXL/zejuLxRljL2I=
+github.com/gosnmp/gosnmp v1.24.1-0.20200225080903-29819b7774e5/go.mod h1:tB/loGhNgiSxOZzz02TRKKhUPUzDrGrkYQSXxD3KfqM=
+github.com/gosnmp/gosnmp v1.24.1 h1:brqlcYbSEa5tESH+Dwo82Nm4Hnzt4pk1kTQ6Sxcl68w=
+github.com/gosnmp/gosnmp v1.24.1/go.mod h1:EEciH24gj0Z8lijV/NUrlAZ8D1TYHImV0cvLMsUpRmM=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
