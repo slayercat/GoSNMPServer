@@ -89,4 +89,4 @@ Could use wrap function for detect type error. See `GoSNMPServer.Asn1IntegerWrap
 
 Thanks
 -----
-This library is based on **[soniah/gosnmp](https://github.com/soniah/gosnmp)** for encoder / decoders. (made a [fork](https://github.com/gosnmp/gosnmp) for maintenance)
+This library is based on **[soniah/gosnmp](https://github.com/soniah/gosnmp)** for encoder / decoders. 
