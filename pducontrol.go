@@ -94,7 +94,7 @@ func Asn1IPAddressUnwrap(i interface{}) net.IP {
 	return ip
 }
 func Asn1IPAddressWrap(i net.IP) interface{} {
-	return i
+	return i.String()
 }
 
 func Asn1Counter32Unwrap(i interface{}) uint { return i.(uint) }
