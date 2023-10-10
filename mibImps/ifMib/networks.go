@@ -1,17 +1,21 @@
 package ifMib
 
-import "fmt"
-import "io/ioutil"
-import "runtime"
-import "strings"
-import "encoding/hex"
-import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
-import "github.com/shirou/gopsutil/net"
-import "github.com/pkg/errors"
+import (
+	"encoding/hex"
+	"fmt"
+	"io/ioutil"
+	"runtime"
+	"strings"
+
+	"github.com/gosnmp/gosnmp"
+	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/net"
+	"github.com/slayercat/GoSNMPServer"
+)
 
 // NetworkOIDs Returns a list of network data.
-//   see http://www.net-snmp.org/docs/mibs/interfaces.html
+//
+//	see http://www.net-snmp.org/docs/mibs/interfaces.html
 func NetworkOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{}
 	valInterfaces, err := net.Interfaces()

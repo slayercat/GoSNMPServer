@@ -16,7 +16,7 @@ before_install:
  - export CODECOV_TOKEN="81d96f00-26df-40dd-8286-58b96fd92963"
 
 install:
- - go get -u github.com/slayercat/gosnmp
+ - go get -u github.com/gosnmp/gosnmp
  - go get github.com/stretchr/testify/assert
  - go get -u golang.org/x/tools/cmd/goimports
 

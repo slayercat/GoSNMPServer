@@ -1,13 +1,15 @@
 package main
 
-import "os"
-import "strings"
-import "github.com/sirupsen/logrus"
-import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
-import "github.com/slayercat/GoSNMPServer/mibImps"
+import (
+	"os"
+	"strings"
 
-import "github.com/urfave/cli/v2"
+	"github.com/gosnmp/gosnmp"
+	"github.com/sirupsen/logrus"
+	"github.com/slayercat/GoSNMPServer"
+	"github.com/slayercat/GoSNMPServer/mibImps"
+	"github.com/urfave/cli/v2"
+)
 
 func makeApp() *cli.App {
 	return &cli.App{

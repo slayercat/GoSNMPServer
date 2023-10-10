@@ -3,8 +3,8 @@ package GoSNMPServer
 import (
 	"net"
 
+	"github.com/gosnmp/gosnmp"
 	"github.com/pkg/errors"
-	"github.com/slayercat/gosnmp"
 )
 
 // PermissionAllowance  ENUM controls for Allowance
@@ -94,7 +94,7 @@ func Asn1IPAddressUnwrap(i interface{}) net.IP {
 	return ip
 }
 func Asn1IPAddressWrap(i net.IP) interface{} {
-	return i
+	return i.String()
 }
 
 func Asn1Counter32Unwrap(i interface{}) uint { return i.(uint) }

@@ -1,10 +1,11 @@
 package GoSNMPServer
 
 import (
-	"github.com/pkg/errors"
-	"github.com/slayercat/gosnmp"
 	"strconv"
 	"strings"
+
+	"github.com/gosnmp/gosnmp"
+	"github.com/pkg/errors"
 )
 
 func getPktContextOrCommunity(i *gosnmp.SnmpPacket) string {

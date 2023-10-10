@@ -1,9 +1,9 @@
 package GoSNMPServer
 
-import "testing"
-
 import (
-	"github.com/slayercat/gosnmp"
+	"testing"
+
+	"github.com/gosnmp/gosnmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -73,7 +73,7 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv1GetRequest() {
 	}
 	suite.handle.Logger.Infof("Response done. try decode")
 	var handle = gosnmp.GoSNMP{}
-	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	handle.Logger = gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger})
 	response, err := handle.SnmpDecodePacket(responsebytes)
 	if err != nil || response == nil {
 		suite.T().Errorf("meet error: %+v", err)
@@ -100,7 +100,7 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3HelloRequest() {
 	}
 	suite.handle.Logger.Infof("Response done. try decode")
 	var handle = gosnmp.GoSNMP{}
-	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	handle.Logger = gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger})
 	response, err := handle.SnmpDecodePacket(responsebytes)
 	if err != nil || response == nil {
 		suite.T().Errorf("meet error: %+v", err)
@@ -134,10 +134,10 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3EncryptedRequest() {
 			PrivacyProtocol:          gosnmp.DES,
 			AuthenticationPassphrase: "pippoxxx",
 			PrivacyPassphrase:        "PIPPOxxx",
-			Logger:                   &SnmpLoggerAdapter{suite.handle.Logger},
+			Logger:                   gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger}),
 		},
 	}
-	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	handle.Logger = gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger})
 	response, err := handle.SnmpDecodePacket(responsebytes)
 	if err != nil || response == nil {
 		suite.T().Errorf("meet error: %+v", err)
@@ -174,10 +174,10 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3GetNextRequestInitial() {
 			PrivacyProtocol:          gosnmp.DES,
 			AuthenticationPassphrase: "testauth",
 			PrivacyPassphrase:        "testpriv",
-			Logger:                   &SnmpLoggerAdapter{suite.handle.Logger},
+			Logger:                   gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger}),
 		},
 	}
-	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	handle.Logger = gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger})
 	response, err := handle.SnmpDecodePacket(responsebytes)
 	if err != nil || response == nil {
 		suite.T().Errorf("meet error: %+v", err)
@@ -215,10 +215,10 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3GetNextRequestEndofMib() {
 			PrivacyProtocol:          gosnmp.DES,
 			AuthenticationPassphrase: "testauth",
 			PrivacyPassphrase:        "testpriv",
-			Logger:                   &SnmpLoggerAdapter{suite.handle.Logger},
+			Logger:                   gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger}),
 		},
 	}
-	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	handle.Logger = gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger})
 	response, err := handle.SnmpDecodePacket(responsebytes)
 	if err != nil || response == nil {
 		suite.T().Errorf("meet error: %+v", err)
@@ -250,7 +250,7 @@ func (suite *ResponseForBufferTestSuite) TestSnmpv3NotEncrypted() {
 	}
 	suite.handle.Logger.Infof("Response done. try decode")
 	var handle = gosnmp.GoSNMP{}
-	handle.Logger = &SnmpLoggerAdapter{suite.handle.Logger}
+	handle.Logger = gosnmp.NewLogger(&SnmpLoggerAdapter{suite.handle.Logger})
 	response, err := handle.SnmpDecodePacket(responsebytes)
 	if err != nil || response == nil {
 		suite.T().Errorf("meet error: %+v", err)

@@ -1,9 +1,12 @@
 package ucdMib
 
-import "fmt"
-import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
-import "github.com/shirou/gopsutil/disk"
+import (
+	"fmt"
+
+	"github.com/gosnmp/gosnmp"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/slayercat/GoSNMPServer"
+)
 
 // NameOverride configs what path disk usage will returns.
 type NameOverride struct {
@@ -17,9 +20,10 @@ type NameOverride struct {
 }
 
 // DiskUsageOIDs Returns a list of disk usages.
-//   Args:
-//       showTheseNameOnly:  what path whill this oid returns. empty means all.
-//   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
+//
+//	Args:
+//	    showTheseNameOnly:  what path whill this oid returns. empty means all.
+//	see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
 func DiskUsageOIDs(showTheseNameOnly ...NameOverride) []*GoSNMPServer.PDUValueControlItem {
 	if len(showTheseNameOnly) == 0 {
 		partitionStats, err := disk.Partitions(false)

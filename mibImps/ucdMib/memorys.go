@@ -1,11 +1,14 @@
 package ucdMib
 
-import "github.com/slayercat/gosnmp"
-import "github.com/slayercat/GoSNMPServer"
-import "github.com/shirou/gopsutil/mem"
+import (
+	"github.com/gosnmp/gosnmp"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/slayercat/GoSNMPServer"
+)
 
 // MemoryOIDs Returns a list of memory operation.
-//   see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
+//
+//	see http://www.net-snmp.org/docs/mibs/ucdavis.html#DisplayString
 func MemoryOIDs() []*GoSNMPServer.PDUValueControlItem {
 	toRet := []*GoSNMPServer.PDUValueControlItem{
 		{
