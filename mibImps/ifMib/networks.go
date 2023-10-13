@@ -228,11 +228,12 @@ func appendLinuxPlatformNetworks(io *[]*GoSNMPServer.PDUValueControlItem, ifName
 					return nil, err
 				}
 				bTString := string(bTs)
+				bTString = strings.TrimSpace(bTString)
 				if val, ok := str_num[bTString]; ok {
 					return GoSNMPServer.Asn1IntegerWrap(int(val)), nil
 				} else {
 					g_Logger.Errorf("get ifOperStatus: unknown operstate %v", bTString)
-					return GoSNMPServer.Asn1IntegerWrap(int(0)), nil
+					return GoSNMPServer.Asn1IntegerWrap(int(4)), nil
 				}
 			},
 			Document: "ifOperStatus",
