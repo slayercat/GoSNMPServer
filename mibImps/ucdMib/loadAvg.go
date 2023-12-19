@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gosnmp/gosnmp"
-	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/slayercat/GoSNMPServer"
 )
 

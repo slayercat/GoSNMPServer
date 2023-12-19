@@ -9,7 +9,7 @@ import (
 
 	"github.com/gosnmp/gosnmp"
 	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/net"
+	"github.com/shirou/gopsutil/v3/net"
 	"github.com/slayercat/GoSNMPServer"
 )
 

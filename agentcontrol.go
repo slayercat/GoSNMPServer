@@ -7,7 +7,7 @@ import (
 
 	"github.com/gosnmp/gosnmp"
 	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/v3/host"
 )
 
 type FuncGetAuthoritativeEngineTime func() uint32
