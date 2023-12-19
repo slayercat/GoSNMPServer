@@ -3,8 +3,8 @@ package ucdMib
 import (
 	"github.com/gosnmp/gosnmp"
 	"github.com/prometheus/procfs"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/slayercat/GoSNMPServer"
 )
 
