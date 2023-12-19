@@ -2,7 +2,7 @@ package ucdMib
 
 import (
 	"github.com/gosnmp/gosnmp"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/slayercat/GoSNMPServer"
 )
 
