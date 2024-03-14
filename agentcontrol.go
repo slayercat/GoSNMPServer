@@ -130,6 +130,10 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 
 	switch request.Version {
 	case gosnmp.Version1, gosnmp.Version2c:
+		if t.SecurityConfig.NoSecurity == false {
+			return nil, errors.WithStack(ErrNoPermission)
+		}
+
 		return t.marshalPkt(t.ResponseForPkt(request))
 		//
 	case gosnmp.Version3:
@@ -152,6 +156,21 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		mode := 0
+
+		if usm.AuthenticationProtocol > gosnmp.NoAuth {
+			mode = 1
+		}
+
+		if usm.PrivacyProtocol > gosnmp.NoPriv {
+			mode = mode | 2
+		}
+
+		if request.MsgFlags&gosnmp.AuthPriv /*3*/ != gosnmp.SnmpV3MsgFlags(mode) {
+			return nil, errors.WithMessagef(ErrUnsupportedPacketData, "GoSNMP Returns %v", err)
+		}
+
 		if decodeError != nil {
 			t.Logger.Debugf("v3 decode [will fail with non password] meet %v", err)
 			vhandle.SecurityParameters = &gosnmp.UsmSecurityParameters{
