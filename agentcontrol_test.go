@@ -22,6 +22,7 @@ func (suite *ResponseForBufferTestSuite) SetupTest() {
 		Logger: suite.Logger,
 		SecurityConfig: SecurityConfig{
 			AuthoritativeEngineBoots: 123,
+			NoSecurity: true,
 			Users: []gosnmp.UsmSecurityParameters{
 				{
 					UserName:                 "pippo",

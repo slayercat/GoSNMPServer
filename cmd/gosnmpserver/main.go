@@ -26,6 +26,7 @@ func makeApp() *cli.App {
 					&cli.StringFlag{Name: "v3Username", Value: "testuser"},
 					&cli.StringFlag{Name: "v3AuthenticationPassphrase", Value: "testauth"},
 					&cli.StringFlag{Name: "v3PrivacyPassphrase", Value: "testpriv"},
+					&cli.BoolFlag{Name: "v3Only", Value: false},
 				},
 				Action: runServer,
 			},
@@ -58,6 +59,7 @@ func runServer(c *cli.Context) error {
 		Logger: logger,
 		SecurityConfig: GoSNMPServer.SecurityConfig{
 			AuthoritativeEngineBoots: 1,
+			SnmpV3Only:                   c.Bool("v3Only"),
 			Users: []gosnmp.UsmSecurityParameters{
 				{
 					UserName:                 c.String("v3Username"),
@@ -75,6 +77,9 @@ func runServer(c *cli.Context) error {
 			},
 		},
 	}
+
+
+
 	logger.Infof("V3 Users:")
 	for _, val := range master.SecurityConfig.Users {
 		logger.Infof(

@@ -31,6 +31,9 @@ type MasterAgent struct {
 type SecurityConfig struct {
 	NoSecurity bool
 
+	// SnmpV3Only is used for mark only snmpv3 is supported
+	SnmpV3Only bool
+
 	// AuthoritativeEngineID is SNMPV3 AuthoritativeEngineID
 	AuthoritativeEngineID SNMPEngineID
 	// AuthoritativeEngineBoots is SNMPV3 AuthoritativeEngineBoots
@@ -130,6 +133,10 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 
 	switch request.Version {
 	case gosnmp.Version1, gosnmp.Version2c:
+		if t.SecurityConfig.SnmpV3Only {
+			return nil, errors.WithMessagef(ErrUnsupportedProtoVersion, "Server sets snmpV3 Only")
+		}
+
 		return t.marshalPkt(t.ResponseForPkt(request))
 		//
 	case gosnmp.Version3:
@@ -152,6 +159,30 @@ func (t *MasterAgent) ResponseForBuffer(i []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		if !t.SecurityConfig.NoSecurity{
+			// https://pkg.go.dev/github.com/gosnmp/gosnmp#SnmpV3MsgFlags
+			userAuthMode := gosnmp.NoAuthNoPriv
+
+
+			if usm.AuthenticationProtocol > gosnmp.NoAuth {
+					userAuthMode = gosnmp.AuthNoPriv
+			}
+
+
+			if usm.PrivacyProtocol > gosnmp.NoPriv {
+					userAuthMode = gosnmp.AuthPriv
+			}
+
+			requestAuthMode := request.MsgFlags&gosnmp.AuthPriv /*3*/ 
+
+			if requestAuthMode != gosnmp.SnmpV3MsgFlags(userAuthMode) {
+				return nil, 
+					errors.WithMessagef(ErrNoPermission, 
+						"user %v required %v, got %v", username, userAuthMode.String(), request.MsgFlags.String())
+			}
+		}
+
 		if decodeError != nil {
 			t.Logger.Debugf("v3 decode [will fail with non password] meet %v", err)
 			vhandle.SecurityParameters = &gosnmp.UsmSecurityParameters{
@@ -288,8 +319,11 @@ func (t *MasterAgent) findForSubAgent(community string) *SubAgent {
 	if val, ok := t.priv.communityToSubAgent[community]; ok {
 		return val
 	} else {
-		return t.priv.defaultSubAgent
-	}
+		if t.SecurityConfig.NoSecurity {
+			return t.priv.defaultSubAgent
+		}
+		return nil
+	} 
 }
 
 func DefaultAuthoritativeEngineID() SNMPEngineID {
