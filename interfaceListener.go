@@ -1,7 +1,11 @@
 package GoSNMPServer
 
-import "net"
-import "github.com/pkg/errors"
+import  (
+	"net"
+	"sync"
+
+	"github.com/pkg/errors"
+)
 
 type ISnmpServerListener interface {
 	SetupLogger(ILogger)
@@ -17,6 +21,7 @@ type IReplyer interface {
 
 type UDPListener struct {
 	conn   *net.UDPConn
+	mutex  sync.RWMutex
 	logger ILogger
 }
 
@@ -43,19 +48,26 @@ func (udp *UDPListener) Address() net.Addr {
 }
 
 func (udp *UDPListener) NextSnmp() ([]byte, IReplyer, error) {
-	var msg [4096]byte
-	if udp.conn == nil {
+	udp.mutex.RLock()
+	conn := udp.conn
+	udp.mutex.RUnlock()
+
+	if conn == nil {
 		return nil, nil, errors.New("Connection Not Listen")
 	}
-	counts, udpAddr, err := udp.conn.ReadFromUDP(msg[:])
+	var msg [4096]byte
+	counts, udpAddr, err := conn.ReadFromUDP(msg[:])
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "UDP Read Error")
 	}
 	udp.logger.Infof("udp request from %v. size=%v", udpAddr, counts)
-	return msg[:counts], &UDPReplyer{udpAddr, udp.conn}, nil
+	return msg[:counts], &UDPReplyer{udpAddr, conn}, nil
 }
 
 func (udp *UDPListener) Shutdown() {
+	udp.mutex.Lock()
+	defer udp.mutex.Unlock()
+
 	if udp.conn != nil {
 		udp.conn.Close()
 		udp.conn = nil
