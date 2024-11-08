@@ -44,7 +44,7 @@ func SystemLoadOIDs() []*GoSNMPServer.PDUValueControlItem {
 				if val, err := load.Avg(); err != nil {
 					return nil, err
 				} else {
-					return GoSNMPServer.Asn1IntegerWrap(int(val.Load1)), nil
+					return GoSNMPServer.Asn1IntegerWrap(int(val.Load1 * 100)), nil
 				}
 			},
 			Document: "laLoadInt",
@@ -81,7 +81,7 @@ func SystemLoadOIDs() []*GoSNMPServer.PDUValueControlItem {
 				if val, err := load.Avg(); err != nil {
 					return nil, err
 				} else {
-					return GoSNMPServer.Asn1IntegerWrap(int(val.Load5)), nil
+					return GoSNMPServer.Asn1IntegerWrap(int(val.Load5 * 100)), nil
 				}
 			},
 			Document: "laLoadInt",
@@ -118,7 +118,7 @@ func SystemLoadOIDs() []*GoSNMPServer.PDUValueControlItem {
 				if val, err := load.Avg(); err != nil {
 					return nil, err
 				} else {
-					return GoSNMPServer.Asn1IntegerWrap(int(val.Load15)), nil
+					return GoSNMPServer.Asn1IntegerWrap(int(val.Load15 * 100)), nil
 				}
 			},
 			Document: "laLoadInt",
