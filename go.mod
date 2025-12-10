@@ -7,8 +7,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/procfs v0.0.8
 	github.com/shirou/gopsutil/v3 v3.23.11
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.8.3
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.1.1
 )
-
