@@ -19,6 +19,9 @@ type SubAgent struct {
 	// OIDs for Read/Write actions
 	OIDs []*PDUValueControlItem
 
+	OIDsGenerator       func() ([]*PDUValueControlItem, error)
+	OIDsSyncOnWalkStart bool
+
 	oidLock sync.Mutex
 
 	// UserErrorMarkPacket decides if shll treat user returned error as generr
@@ -33,6 +36,16 @@ func (t *SubAgent) SyncConfig() error {
 
 	t.oidLock.Lock()
 	defer t.oidLock.Unlock()
+
+	if t.OIDsGenerator != nil {
+		newoids, oiderr := t.OIDsGenerator()
+		if oiderr != nil {
+			t.Logger.Warnf("error generating oids, will not update main table: %s", oiderr.Error())
+		} else {
+			t.Logger.Info("updating oid table")
+			t.OIDs = newoids
+		}
+	}
 
 	t.Logger.Debugf("Total OIDs of %v: %v", t.CommunityIDs, len(t.OIDs))
 
@@ -379,6 +392,9 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 				break
 			}
 		} else {
+			if t.OIDsSyncOnWalkStart && t.OIDsGenerator != nil {
+				t.SyncConfig()
+			}
 			before = false
 		}
 
