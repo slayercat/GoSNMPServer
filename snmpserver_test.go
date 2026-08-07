@@ -141,6 +141,7 @@ func (suite *ServerTests) TestErrors() {
 			},
 		},
 	}
+
 	shandle := NewSNMPServer(master)
 	shandle.ListenUDP("udp4", ":0")
 	var stopWaitChain = make(chan int)
@@ -264,10 +265,9 @@ func (suite *ServerTests) TestGetSetOids() {
 		if err != nil {
 			suite.Logger.Errorf("error in ServeForever: %v", err)
 		} else {
-			suite.Logger.Info("ServeForever Stoped.")
+			suite.Logger.Info("ServeForever Stopped.")
 		}
 		stopWaitChain <- 1
-
 	}()
 
 	serverAddress := shandle.Address().(*net.UDPAddr)
@@ -281,14 +281,70 @@ func (suite *ServerTests) TestGetSetOids() {
 		assert.NotEqual(suite.T(), []byte{}, result, "data SNMPGetNext gets: \n%v", string(result))
 		assert.Equalf(suite.T(), 1, len(lines), "data SNMPGetNext gets: \n%v", string(result))
 	})
-	suite.Run("SNMPWalk", func() {
+	suite.Run("SNMPGetNextSubTree", func() {
+		result, err := getCmdOutput("snmpgetnext", "-v2c", "-c", "public", "-On",
+			serverAddress.String(), "1.2.3.14")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v", err)
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		assert.Equalf(suite.T(), 1, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equal(suite.T(), ".1.2.3.14.1.1 = STRING: \"1\"", string(lines[0]))
+	})
+	suite.Run("SNMPGetNextInsideSubTree1", func() {
+		result, err := getCmdOutput("snmpgetnext", "-v2c", "-c", "public", "-On",
+			serverAddress.String(), "1.2.3.14.1")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v", err)
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		assert.Equalf(suite.T(), 1, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equal(suite.T(), ".1.2.3.14.1.1 = STRING: \"1\"", string(lines[0]))
+	})
+	suite.Run("SNMPGetNextInsideSubTree2", func() {
+		result, err := getCmdOutput("snmpgetnext", "-v2c", "-c", "public", "-On",
+			serverAddress.String(), "1.2.3.14.1.1")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v", err)
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		assert.Equalf(suite.T(), 1, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equal(suite.T(), ".1.2.3.14.1.2 = STRING: \"2\"", string(lines[0]))
+	})
+	suite.Run("SNMPWalkAll", func() {
 		result, err := getCmdOutput("snmpwalk", "-v2c", "-c", "public",
 			serverAddress.String(), "1")
 		if err != nil {
 			suite.T().Errorf("cmd meet error: %+v", err)
 		}
 		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
-		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1+
+			2 /* for subtree elements*/ -1, /* for subtree with no data */
+			len(lines), "data snmpwalk gets: \n%v", string(result))
+	})
+	suite.Run("SNMPWalkSubTree", func() {
+		result, err := getCmdOutput("snmpwalk", "-v2c", "-c", "public", "-On",
+			serverAddress.String(), "1.2.3.14")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v", err)
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equal(suite.T(), ".1.2.3.14.1.1 = STRING: \"1\"", string(lines[0]))
+		assert.Equal(suite.T(), ".1.2.3.14.1.2 = STRING: \"2\"", string(lines[1]))
+		assert.Equal(suite.T(), ".1.2.3.14.1.3 = STRING: \"3\"", string(lines[2]))
+	})
+	suite.Run("SNMPWalkInsideSubTree", func() {
+		result, err := getCmdOutput("snmpwalk", "-v2c", "-c", "public", "-On",
+			serverAddress.String(), "1.2.3.14.1")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v", err)
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equal(suite.T(), ".1.2.3.14.1.1 = STRING: \"1\"", string(lines[0]))
+		assert.Equal(suite.T(), ".1.2.3.14.1.2 = STRING: \"2\"", string(lines[1]))
+		assert.Equal(suite.T(), ".1.2.3.14.1.3 = STRING: \"3\"", string(lines[2]))
 	})
 	suite.Run("SNMPSet", func() {
 		suite.Run("Integer", func() {
@@ -407,9 +463,33 @@ func (suite *ServerTests) TestGetSetOids() {
 				assert.Equal(suite.T(), gosnmp.SNMPError(0x0), result.Error)
 			})
 		})
-
 	})
-	suite.Run("SNMPBulkGet", func() {
+	suite.Run("GetSubTreeRoot", func() {
+		_, err := getCmdOutput("snmpget", "-v2c", "-c", "public", "-On", serverAddress.String(),
+			"1.2.3.14")
+		assert.NotNil(suite.T(), err)
+		assert.Equal(suite.T(), "exit status 2", err.Error())
+		assert.Equal(suite.T(), "Error in packet\nReason: (noSuchName) There is no such variable name in this MIB.\n",
+			string(err.(*exec.ExitError).Stderr))
+	})
+	suite.Run("GetSubTreeOctetString", func() {
+		result, err := getCmdOutput("snmpget", "-v2c", "-c", "public", "-On", serverAddress.String(),
+			"1.2.3.14.1.2")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		assert.Equal(suite.T(), ".1.2.3.14.1.2 = STRING: \"2\"\n", string(result))
+	})
+	suite.Run("GetSubTreeNoSuchOID", func() {
+		_, err := getCmdOutput("snmpget", "-v2c", "-c", "public", "-On", serverAddress.String(),
+			"1.2.3.14.1")
+		assert.NotNil(suite.T(), err)
+		assert.Equal(suite.T(), "exit status 2", err.Error())
+		assert.Equal(suite.T(), "Error in packet\nReason: (noSuchName) There is no such variable name in this MIB.\n",
+			string(err.(*exec.ExitError).Stderr))
+	})
+	suite.Run("SNMPBulkWalkAll", func() {
 		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", serverAddress.String(),
 			"1")
 		if err != nil {
@@ -418,9 +498,46 @@ func (suite *ServerTests) TestGetSetOids() {
 		}
 		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
 		suite.T().Logf("result: %v", string(result))
-		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1+
+			2 /* elemets in Subtree */ -1, /* subtree with no data */
+			len(lines), "data snmpwalk gets: \n%v", string(result))
 		assert.Equalf(suite.T(),
 			".1.2.4.2.0 = No more variables left in this MIB View (It is past the end of the MIB tree)",
+			string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetSubTree", func() {
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", serverAddress.String(),
+			"1.2.3.14")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		if len(lines) > 3 {
+			assert.Equalf(suite.T(), 3+1, len(lines), "data snmpwalk gets: \n%v", string(result))
+			assert.Equalf(suite.T(),
+				".1.2.3.14.1.3 = No more variables left in this MIB View (It is past the end of the MIB tree)",
+				string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+		} else {
+			assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+			assert.Equalf(suite.T(),
+				".1.2.3.14.1.3 = STRING: \"3\"",
+				string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+		}
+	})
+	suite.Run("SNMPBulkGetInsideSubTree1", func() {
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", serverAddress.String(),
+			"1.2.3.14.1")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.3.14.1.3 = STRING: \"3\"",
 			string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
 	})
 	suite.Run("SNMPBulkGetLexicalNext", func() {
@@ -443,6 +560,217 @@ func (suite *ServerTests) TestGetSetOids() {
 		if err == nil {
 			suite.T().Errorf("cmd not meet error! result=%v", result)
 		}
+	})
+	suite.Run("SNMPBulkGetAllRepeaters", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn5", serverAddress.String(),
+			"1.2.3.1", "1.2.3.2", "1.2.3.3", "1.2.3.4", "1.2.3.6", "1.2.3.7")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 15, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.4.2.0 = Counter32: 0",
+			string(lines[len(lines)-1]), "data snmpbulkget gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetRepeatersFromSubtree1", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn3", serverAddress.String(),
+			"1.2.3.14.1.1", "1.2.3.14.1.2", "1.2.3.14.1.3")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.3.14.1.3 = STRING: \"3\"",
+			string(lines[len(lines)-1]), "data snmpbulkget gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetRepeatersFromSubtree2", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn4", serverAddress.String(),
+			"1.2.3.14.1.1", "1.2.3.14.1.2", "1.2.3.14.1.3", "1.2.4.2.0")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 4, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.4.2.0 = Counter32: 0",
+			string(lines[len(lines)-1]), "data snmpbulkget gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetRepeatersFromSubtree3", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn3", serverAddress.String(),
+			"1.2.3.14.1.1", "1.2.3.14.1.2", "1.2.3.14.1.3", "1.2.3.15")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 4+1, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.4.2.0 = No more variables left in this MIB View (It is past the end of the MIB tree)",
+			string(lines[len(lines)-1]), "data snmpbulkget gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetRepeatersFromSubtree4", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn2", serverAddress.String(),
+			"1.2.3.5", "1.2.3.6")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 2, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.3.5 = No Such Instance currently exists at this OID",
+			string(lines[0]), "data snmpbulkget gets: \n%v", string(lines[0]))
+		assert.Equalf(suite.T(),
+			".1.2.3.6 = Counter32: 0",
+			string(lines[1]), "data snmpbulkget gets: \n%v", string(lines[1]))
+	})
+	suite.Run("SNMPBulkGetRepeatersFromSubtree5", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn3", serverAddress.String(),
+			"1.2.3.14", "1.2.3.15", "1.2.3.6")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.3.14 = No Such Instance currently exists at this OID",
+			string(lines[0]), "data snmpbulkget gets: \n%v", string(lines[0]))
+		assert.Equalf(suite.T(),
+			".1.2.3.15 = No Such Instance currently exists at this OID",
+			string(lines[1]), "data snmpbulkget gets: \n%v", string(lines[1]))
+		assert.Equalf(suite.T(),
+			".1.2.3.6 = Counter32: 0",
+			string(lines[2]), "data snmpbulkget gets: \n%v", string(lines[2]))
+	})
+	shandle.Shutdown()
+	<-stopWaitChain
+}
+func (suite *ServerTests) TestGetSetOidsMaxRepetions1() {
+	master := MasterAgent{
+		Logger: suite.Logger,
+		SecurityConfig: SecurityConfig{
+			AuthoritativeEngineBoots: 1,
+			Users: []gosnmp.UsmSecurityParameters{
+				{
+					UserName:                 "testUser",
+					AuthenticationProtocol:   gosnmp.MD5,
+					PrivacyProtocol:          gosnmp.DES,
+					AuthenticationPassphrase: "testAuth",
+					PrivacyPassphrase:        "testPriv",
+				},
+			},
+		},
+		SubAgents: []*SubAgent{
+			{
+				CommunityIDs: []string{"public"},
+				OIDs:         suite.getTestGetSetOIDS(),
+			},
+		},
+	}
+	shandle := NewSNMPServer(master)
+	shandle.ListenUDP("udp4", ":0")
+	var stopWaitChain = make(chan int)
+	go func() {
+		err := shandle.ServeForever()
+		if err != nil {
+			suite.Logger.Errorf("error in ServeForever: %v", err)
+		} else {
+			suite.Logger.Info("ServeForever Stopped.")
+		}
+		stopWaitChain <- 1
+	}()
+
+	serverAddress := shandle.Address().(*net.UDPAddr)
+	suite.Run("SNMPBulkGetAll", func() {
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", "-Cr1", serverAddress.String(),
+			"1")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), len(master.SubAgents[0].OIDs)+1+
+			2 /* elements in Subtree */ -1, /* subtree with no data */
+			len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.4.2.0 = No more variables left in this MIB View (It is past the end of the MIB tree)",
+			string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetSubTree", func() {
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", "-Cr1", serverAddress.String(),
+			"1.2.3.14")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		if len(lines) > 3 {
+			assert.Equalf(suite.T(), 3+1, len(lines), "data snmpwalk gets: \n%v", string(result))
+			assert.Equalf(suite.T(),
+				".1.2.3.14.1.3 = No more variables left in this MIB View (It is past the end of the MIB tree)",
+				string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+		} else {
+			assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+			assert.Equalf(suite.T(),
+				".1.2.3.14.1.3 = STRING: \"3\"",
+				string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+		}
+	})
+	suite.Run("SNMPBulkGetInsideSubTree1", func() {
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", "-Cr1", serverAddress.String(),
+			"1.2.3.14.1")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 3, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.3.14.1.3 = STRING: \"3\"",
+			string(lines[len(lines)-1]), "data snmpwalk gets: \n%v", string(lines[len(lines)-1]))
+	})
+	suite.Run("SNMPBulkGetLexicalNext", func() {
+		result, err := getCmdOutput("snmpbulkwalk", "-v2c", "-c", "public", "-On", "-Cr1", serverAddress.String(),
+			"1.2.4.2")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 1+1, len(lines), "data snmpwalk gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.4.2.0 = No more variables left in this MIB View (It is past the end of the MIB tree)",
+			string(lines[1]), "data snmpwalk gets: \n%v", string(lines[1]))
+	})
+	suite.Run("SNMPBulkGetAllRepeaters", func() {
+		result, err := getCmdOutput("snmpbulkget", "-v2c", "-c", "public", "-On", "-Cn5", "-Cr1", serverAddress.String(),
+			"1.2.3.1", "1.2.3.2", "1.2.3.3", "1.2.3.4", "1.2.3.6", "1.2.3.6")
+		if err != nil {
+			suite.T().Errorf("cmd meet error: %+v.\nresultErr=%v\n resultout=%v",
+				err, string(err.(*exec.ExitError).Stderr), string(result))
+		}
+		lines := bytes.Split(bytes.TrimSpace(result), []byte("\n"))
+		suite.T().Logf("result: %v", string(result))
+		assert.Equalf(suite.T(), 6, len(lines), "data snmpbulkget gets: \n%v", string(result))
+		assert.Equalf(suite.T(),
+			".1.2.3.7 = Gauge32: 0",
+			string(lines[len(lines)-1]), "data snmpbulkget gets: \n%v", string(lines[len(lines)-1]))
 	})
 	shandle.Shutdown()
 	<-stopWaitChain
@@ -618,6 +946,50 @@ func (suite *ServerTests) getTestGetSetOIDS() []*PDUValueControlItem {
 				return nil
 			},
 			Document: "TestTypeIPAddress",
+		},
+		{
+			OID:  "1.2.3.14",
+			Type: gosnmp.NoSuchObject,
+			OnDynamicSubtree: func() (*[]*PDUValueControlItem, error) {
+				oids := make([]*PDUValueControlItem, 0)
+				oids = append(oids, &PDUValueControlItem{
+					OID:  "1.2.3.14.1.1",
+					Type: gosnmp.OctetString,
+					OnGet: func() (value interface{}, err error) {
+						return Asn1OctetStringWrap("1"), nil
+					},
+					Document: "TestTypeOctetStringInDynamicSubtree1",
+				})
+				oids = append(oids, &PDUValueControlItem{
+					OID:  "1.2.3.14.1.2",
+					Type: gosnmp.OctetString,
+					OnGet: func() (value interface{}, err error) {
+						return Asn1OctetStringWrap("2"), nil
+					},
+					Document: "TestTypeOctetStringInDynamicSubtree2",
+				})
+				oids = append(oids, &PDUValueControlItem{
+					OID:  "1.2.3.14.1.3",
+					Type: gosnmp.OctetString,
+					OnGet: func() (value interface{}, err error) {
+						return Asn1OctetStringWrap("3"), nil
+					},
+					Document: "TestTypeOctetStringInDynamicSubtree3",
+				})
+
+				LinkOIDs(oids)
+
+				return &oids, nil
+			},
+			Document: "TestDynamicSubtree",
+		},
+		{
+			OID:  "1.2.3.15",
+			Type: gosnmp.NoSuchObject,
+			OnDynamicSubtree: func() (*[]*PDUValueControlItem, error) {
+				return nil, ErrNoData
+			},
+			Document: "TestDynamicSubtree",
 		},
 		{
 			OID:  "1.2.4.2.0",

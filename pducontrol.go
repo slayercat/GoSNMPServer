@@ -39,6 +39,9 @@ type FuncPDUControlGet func() (value interface{}, err error)
 // FuncPDUControlSet will be called on set value
 type FuncPDUControlSet func(value interface{}) error
 
+// FuncPDUControlDynamicSubtree will be called on get a dynamic subtree,
+type FuncPDUControlDynamicSubtree func() (oids *[]*PDUValueControlItem, err error)
+
 // PDUValueControlItem describe the action of get / set / walk in pdu tree
 type PDUValueControlItem struct {
 	// OID controls which OID does this PDUValue works
@@ -64,6 +67,9 @@ type PDUValueControlItem struct {
 	OnSet FuncPDUControlSet
 	// OnTrap will be called on TRAP.
 	OnTrap FuncPDUControlTrap
+	// OnDynamicSubtree will be called durching GET operations when it is set and the operation will continue
+	// on the returned subtree.
+	OnDynamicSubtree FuncPDUControlDynamicSubtree
 	//////////// For human document
 
 	//Document for this PDU Item. ignored by the program.

@@ -29,6 +29,19 @@ type SubAgent struct {
 	master *MasterAgent
 }
 
+// LinkOIDs links OIDs in the given array for proscessing by GoSNMPServer.
+func LinkOIDs(OIDs []*PDUValueControlItem) {
+	if len(OIDs) < 2 {
+		return
+	}
+	sort.Sort(byOID(OIDs))
+	OIDs[0].id = 0
+	for i := 1; i < len(OIDs); i++ {
+		OIDs[i-1].nextPDU = OIDs[i]
+		OIDs[i].id = i
+	}
+}
+
 func (t *SubAgent) SyncConfig() error {
 
 	t.oidLock.Lock()
@@ -42,23 +55,13 @@ func (t *SubAgent) SyncConfig() error {
 		}
 	}
 
-	if len(t.OIDs) < 2 {
-		//to small to link
-		return nil
-	}
+	LinkOIDs(t.OIDs)
 
-	sort.Sort(byOID(t.OIDs))
 	for id, each := range t.OIDs {
-		t.Logger.Infof("OIDs of %v: %v", t.CommunityIDs, each.OID)
+		t.Logger.Debugf("  OIDs of %v: %v", t.CommunityIDs, each.OID)
 		if id != 0 && t.OIDs[id].OID == t.OIDs[id-1].OID {
 			return fmt.Errorf("community %v: meet duplicate oid %v", t.CommunityIDs, each.OID)
 		}
-	}
-
-	t.OIDs[0].id = 0
-	for i := 1; i < len(t.OIDs); i++ {
-		t.OIDs[i-1].nextPDU = t.OIDs[i]
-		t.OIDs[i].id = i
 	}
 
 	return nil
@@ -228,8 +231,19 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 		return &ret, nil
 	}
 	for id, varItem := range i.Variables {
-		item, before := t.getForPDUValueControl(varItem.Name)
-		if item == nil || before {
+		item, before := t.getForPDUValueControl(varItem.Name, t.OIDs)
+		t.Logger.Debugf("serveGetRequest: got PDU %v (%t)", item, before)
+		if before && item.id > 0 && t.OIDs[item.id-1].OnDynamicSubtree != nil {
+			if strings.Contains(varItem.Name, t.OIDs[item.id-1].OID) {
+				t.Logger.Debugf("previous entry contains searched id, calling OnDynamicSubtree")
+				oids, err := t.OIDs[item.id-1].OnDynamicSubtree()
+				if err == nil {
+					item, before = t.getForPDUValueControl(varItem.Name, *oids)
+					t.Logger.Debugf("Got PDU: %v (%t)", item, before)
+				}
+			}
+		}
+		if item == nil || before || item.OnGet == nil {
 			if ret.Error == gosnmp.NoError {
 				ret.Error = gosnmp.NoSuchName
 				ret.ErrorIndex = uint8(id)
@@ -243,6 +257,7 @@ func (t *SubAgent) serveGetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 			ret.Error = snmperr
 			ret.ErrorIndex = uint8(id)
 		}
+		t.Logger.Debugf("append %v", ctl)
 		ret.Variables = append(ret.Variables, ctl)
 	}
 
@@ -260,7 +275,7 @@ func (t *SubAgent) serveTrap(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, error) {
 	ret.Variables = []gosnmp.SnmpPDU{}
 	t.Logger.Debugf("i.Version == %v len(i.Variables) = %v.", i.Version, len(i.Variables))
 	for id, varItem := range i.Variables {
-		item, before := t.getForPDUValueControl(varItem.Name)
+		item, before := t.getForPDUValueControl(varItem.Name, t.OIDs)
 		if item == nil || before {
 			if ret.Error == gosnmp.NoError {
 				ret.Error = gosnmp.NoSuchName
@@ -294,13 +309,50 @@ func (t *SubAgent) serveGetBulkRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 
 	// handle Non-Repeaters
 	t.Logger.Debugf("handle non-repeaters (%d)", i.NonRepeaters)
+	searchOIDs := &t.OIDs
 	for j := uint8(0); j < i.NonRepeaters; j++ {
+		if j >= vc {
+			t.Logger.Errorf("too few non-repeaters")
+			break
+		}
 		queryForOid := i.Variables[j].Name
-		queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
-		item, _ := t.getForPDUValueControl(queryForOidStriped)
-		t.Logger.Debugf("(non-repeater) t.getForPDUValueControl. query_for_oid=%v item=%+v ", queryForOid, item)
+		queryForOidStripped := strings.TrimLeft(queryForOid, ".0")
+		item, before := t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
+		t.Logger.Debugf("(non-repeater) t.getForPDUValueControl. query_for_oid=%v item=%+v before=%t",
+			queryForOid, item, before)
+		if before {
+			t.Logger.Debugf("got before PDU: %v (%v)", item, item.OnDynamicSubtree)
+			if item.id > 0 {
+				t.Logger.Debugf("compare %s with %s", (*searchOIDs)[item.id-1].OID, queryForOidStripped)
+				if strings.Contains(queryForOidStripped, (*searchOIDs)[item.id-1].OID) {
+					t.Logger.Debugf("previous entry contains searched id")
+					item = (*searchOIDs)[item.id-1]
+				} else {
+					ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(queryForOid))
+					continue
+				}
+				if item != nil && item.OnDynamicSubtree != nil {
+					t.Logger.Debugf("calling OnDynamicSubtree")
+					oids, err := item.OnDynamicSubtree()
+					if err == nil {
+						t.Logger.Debugf("setting item to item in subtree(%d)", len(*oids))
+						item, before = t.getForPDUValueControl(queryForOidStripped, *oids)
+						t.Logger.Debugf("got PDU: %v (%v)", item, before)
+					} else {
+						// no data in subtree => not found
+						item = nil
+					}
+				}
+			}
+		}
+
 		if item == nil {
 			ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
+			continue
+		}
+
+		if item.OnGet == nil {
+			ret.Variables = append(ret.Variables, t.getPDUNoSuchInstance(queryForOid))
 			continue
 		}
 
@@ -309,30 +361,117 @@ func (t *SubAgent) serveGetBulkRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 			ret.Error = snmperr
 			ret.ErrorIndex = j
 		}
+		t.Logger.Debugf("appended %v", ctl)
 		ret.Variables = append(ret.Variables, ctl)
 	}
 
 	t.Logger.Debugf("handle remaining (%d, max-repetitions=%d)", vc-i.NonRepeaters, i.MaxRepetitions)
 	eomv := make(map[string]struct{})
-	lastItem := &PDUValueControlItem{OID: i.Variables[0].Name}
+	// no repeaters left
+	if vc-uint8(len(ret.Variables)) == 0 {
+		return &ret, nil
+	}
+
+	lastItem := &PDUValueControlItem{OID: i.Variables[vc-uint8(len(ret.Variables))-1].Name}
+	jOffset := uint32(0)
 	for j := uint32(0); j < i.MaxRepetitions; j++ { // loop through repetitions
 		for k := i.NonRepeaters; k < vc; k++ { // loop through "repeaters"
+			t.Logger.Debugf("repeater k: %v (%v)", k, vc)
 			queryForOid := i.Variables[k].Name
-			queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
-			item, before := t.getForPDUValueControl(queryForOidStriped)
+			queryForOidStripped := strings.TrimLeft(queryForOid, ".0")
+			t.Logger.Debugf("looking for %s", queryForOidStripped)
+			item, before := t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
+			t.Logger.Debugf("got PDU: %v (%v)", item, before)
+
 			if !before {
-				item = t.NextPDU(item, 0)
+				if item.OnDynamicSubtree == nil {
+					item = t.NextPDU(item, 0)
+				}
+				for item != nil && item.OnDynamicSubtree != nil {
+					t.Logger.Debugf("calling OnDynamicSubtree")
+					oids, err := item.OnDynamicSubtree()
+					if err == nil {
+						t.Logger.Debugf("setting item to first item in subtree")
+						(*oids)[len(*oids)-1].nextPDU = item.nextPDU
+						searchOIDs = oids
+						item = (*oids)[0]
+					} else {
+						item = t.nextPDU(item, 0)
+					}
+				}
+				t.Logger.Debugf("got next PDU: %v", item)
 			} else {
+				t.Logger.Debugf("got before PDU: %v (%v)", item, item.OnDynamicSubtree)
+				if item.id > 0 {
+					t.Logger.Debugf("compare %s with %s", (*searchOIDs)[item.id-1].OID, queryForOidStripped)
+					if strings.Contains(queryForOidStripped, (*searchOIDs)[item.id-1].OID) {
+						t.Logger.Debugf("previous entry contains searched id")
+						item = (*searchOIDs)[item.id-1]
+					}
+				}
+				for item != nil && item.OnDynamicSubtree != nil {
+					t.Logger.Debugf("calling OnDynamicSubtree")
+					oids, err := item.OnDynamicSubtree()
+					nextItem := item.nextPDU
+					if err == nil {
+						t.Logger.Debugf("setting item to item in subtree(%d)", len(*oids))
+						(*oids)[len(*oids)-1].nextPDU = nextItem
+						searchOIDs = oids
+						item, before = t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
+						t.Logger.Debugf("got PDU: %v (%v)", item, before)
+						if item == nil || item.nextPDU == nextItem {
+							t.Logger.Debugf("reset to t.OID: j=%d, jo=%d", j, jOffset)
+							searchOIDs = &t.OIDs
+						}
+						if !before {
+							item = t.NextPDU(item, 0)
+						}
+						t.Logger.Debugf("got next PDU: %v", item)
+					} else {
+						item = t.NextPDU(item, 0)
+					}
+				}
 				before = false
 			}
 
 			if j > 0 {
-				item = t.NextPDU(item, int(j)-1)
+				t.Logger.Debugf("remaining j %d jOffset %d", j, jOffset)
+				item = t.NextPDU(item, int(j-jOffset)-1)
+				t.Logger.Debugf("got next %d PDU: %v", int(j-jOffset), item)
+				for item != nil && item.OnDynamicSubtree != nil {
+					t.Logger.Debugf("calling OnDynamicSubtree")
+					oids, err := item.OnDynamicSubtree()
+					nextItem := item.nextPDU
+					if err == nil {
+						t.Logger.Debugf("setting item to item in subtree(%d)", len(*oids))
+						(*oids)[len(*oids)-1].nextPDU = nextItem
+						searchOIDs = oids
+						jOffset = j
+						item, _ = t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
+						t.Logger.Debugf("got new next %d PDU: %v", int(j-jOffset), item)
+						if item == nil || item.nextPDU == nextItem {
+							t.Logger.Debugf("reset to t.OID")
+							searchOIDs = &t.OIDs
+							jOffset = 0
+						}
+					} else {
+						item = item.nextPDU
+						t.Logger.Debugf("reset to t.OID")
+						searchOIDs = &t.OIDs
+						jOffset = 0
+					}
+				}
+				if item == nil {
+					t.Logger.Debugf("reset to t.OID")
+					searchOIDs = &t.OIDs
+					jOffset = 0
+				}
 			}
 
 			if item == nil {
 				if _, found := eomv[queryForOid]; !found {
 					ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(lastItem.OID))
+					t.Logger.Debugf("vars: %v", ret.Variables)
 					eomv[queryForOid] = struct{}{}
 				}
 				return &ret, nil
@@ -343,6 +482,7 @@ func (t *SubAgent) serveGetBulkRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 				ret.ErrorIndex = k
 			}
 			lastItem = item
+			t.Logger.Debugf("adding %v", ctl)
 			ret.Variables = append(ret.Variables, ctl)
 		}
 	}
@@ -357,25 +497,98 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 	ret.Variables = []gosnmp.SnmpPDU{}
 	length := len(i.Variables)
 	queryForOid := i.Variables[length-1].Name
-	queryForOidStriped := strings.TrimLeft(queryForOid, ".0")
+	queryForOidStripped := strings.TrimLeft(queryForOid, ".0")
 	t.Logger.Debugf("serveGetNextRequest of %v", queryForOid)
-	item, before := t.getForPDUValueControl(queryForOidStriped)
+	searchOIDs := &t.OIDs
+	item, before := t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
 	t.Logger.Debugf("t.getForPDUValueControl. query_for_oid=%v item=%v ", queryForOid, item)
-
+	t.Logger.Debugf("before: %v", before)
 	if item == nil {
 		// NOT find for the last
 		ret.Variables = append(ret.Variables, t.getPDUEndOfMibView(queryForOid))
 		return &ret, nil
 	}
+	if before && item.id > 0 {
+		t.Logger.Debugf("compare %s with %s", (*searchOIDs)[item.id-1].OID, queryForOidStripped)
+		if strings.Contains(queryForOidStripped, (*searchOIDs)[item.id-1].OID) {
+			t.Logger.Debugf("previous entry contains searched id")
+			item = t.OIDs[item.id-1]
+		}
+	}
 
-	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v. len(t.OIDs)=%v", item.id, length, len(t.OIDs))
+	skipNext := false
+	if item.OnDynamicSubtree != nil {
+		oids, err := item.OnDynamicSubtree()
+		nextItem := item.nextPDU
+		if err == nil {
+			(*oids)[len(*oids)-1].nextPDU = nextItem
+			searchOIDs = oids
+			t.Logger.Debugf("setting item to item in subtree(%d)", len(*oids))
+			item, before = t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
+			t.Logger.Debugf("got PDU: %v", item)
+			if item == nil || item.nextPDU == nextItem {
+				searchOIDs = &t.OIDs
+			}
+			if !before {
+				item = t.NextPDU(item, 0)
+				before = false
+			}
+			t.Logger.Debugf("got next PDU: %v", item)
+			skipNext = true
+		} else {
+			item = item.nextPDU
+		}
+	}
+	t.Logger.Debugf("i.Variables[id: length]. id=%v length =%v. len(OIDs)=%v", item.id, length, len(*searchOIDs))
+	t.Logger.Debugf("before: %v", before)
 	for {
 		if !before {
-			item = t.NextPDU(item, 0)
+			if !skipNext {
+				item = t.NextPDU(item, 0)
+			}
 			if item == nil {
 				break
 			}
+			if item.OnDynamicSubtree != nil {
+				oids, err := item.OnDynamicSubtree()
+				if err == nil && len(*oids) > 0 {
+					t.Logger.Debugf("setting item to first item in subtree")
+					searchOIDs = oids
+					item = (*oids)[0]
+				} else {
+					item = item.nextPDU
+				}
+			}
 		} else {
+			if item.id > 0 {
+				t.Logger.Debugf("compare %s with %s", (*searchOIDs)[item.id-1].OID, queryForOidStripped)
+				if strings.Contains(queryForOidStripped, (*searchOIDs)[item.id-1].OID) {
+					t.Logger.Debugf("previous entry contains searched id")
+					item = t.OIDs[item.id-1]
+				}
+				if item.OnDynamicSubtree != nil {
+					t.Logger.Debugf("calling dyanmic subtree")
+					nextItem := item.nextPDU
+					oids, err := item.OnDynamicSubtree()
+					if err == nil {
+						(*oids)[len(*oids)-1].nextPDU = nextItem
+						searchOIDs = oids
+						t.Logger.Debugf("setting item to item in subtree(%d)", len(*oids))
+						item, before = t.getForPDUValueControl(queryForOidStripped, *searchOIDs)
+						t.Logger.Debugf("got PDU: %v", item)
+						if item == nil || item.nextPDU == nextItem {
+							searchOIDs = &t.OIDs
+						}
+						if !before {
+							item = t.NextPDU(item, 0)
+							before = false
+						}
+						t.Logger.Debugf("got next PDU: %v", item)
+					} else {
+						item = item.nextPDU
+					}
+				}
+			}
 			before = false
 		}
 
@@ -383,7 +596,7 @@ func (t *SubAgent) serveGetNextRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket
 			break
 		}
 
-		if item.NonWalkable || item.OnGet == nil {
+		if item.NonWalkable || (item.OnGet == nil && item.OnDynamicSubtree == nil) {
 			t.Logger.Debugf("getnext: oid=%v. skip for non walkable", item.OID)
 			continue // skip non-walkable items
 		}
@@ -412,7 +625,7 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 	ret.PDUType = gosnmp.GetResponse
 	ret.Variables = []gosnmp.SnmpPDU{}
 	for id, varItem := range i.Variables {
-		item, before := t.getForPDUValueControl(varItem.Name)
+		item, before := t.getForPDUValueControl(varItem.Name, t.OIDs)
 		if item == nil || before {
 			if ret.Error == gosnmp.NoError {
 				ret.Error = gosnmp.NoSuchName
@@ -469,33 +682,33 @@ func (t *SubAgent) serveSetRequest(i *gosnmp.SnmpPacket) (*gosnmp.SnmpPacket, er
 // getForPDUValueControl this function used to lookup the handler for the oid, bool on the end is to indicate if the
 // given oid came before the registered oids. For example if you did an snmpwalk and gave a '1' (IE: show me everything)
 // this function would return the lowest oid value and true.
-func (t *SubAgent) getForPDUValueControl(oid string) (*PDUValueControlItem, bool) {
+func (t *SubAgent) getForPDUValueControl(oid string, oids []*PDUValueControlItem) (*PDUValueControlItem, bool) {
 
 	t.oidLock.Lock()
 	defer t.oidLock.Unlock()
 
 	toQuery := oidToByteString(oid)
-	i := sort.Search(len(t.OIDs), func(i int) bool {
-		thisOid := oidToByteString(t.OIDs[i].OID)
+	i := sort.Search(len(oids), func(i int) bool {
+		thisOid := oidToByteString(oids[i].OID)
 		compareResult := compareByteString(thisOid, toQuery)
 		// thisOid >= toQuery
 		return compareResult == ByteStringCompareResultGreaterThen || compareResult == ByteStringCompareResultEqual
 	})
 
-	if i < len(t.OIDs) {
+	if i < len(oids) {
 		// t.OIDs[i].OID == toQuery
-		compareResult := compareByteString(oidToByteString(t.OIDs[i].OID), toQuery)
+		compareResult := compareByteString(oidToByteString(oids[i].OID), toQuery)
 		switch compareResult {
 		case ByteStringCompareResultEqual:
-			return t.OIDs[i], false
+			return oids[i], false
 		case ByteStringCompareResultGreaterThen:
-			return t.OIDs[i], true
+			return oids[i], true
 		}
 	}
 
 	first := i == 0
-	if first && len(t.OIDs) > 0 {
-		return t.OIDs[0], true
+	if first && len(oids) > 0 {
+		return oids[0], true
 	}
 	return nil, false
 }
